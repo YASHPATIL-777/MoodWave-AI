@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoodWave — Offline Local Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d1117;
+      --panel: rgba(56, 139, 253, 0.06);
+      --panel-hover: rgba(56, 139, 253, 0.12);
+      --border: rgba(56, 139, 253, 0.2);
+      --accent1: #388bfd;
+      --accent2: #58d6f5;
+      --accent-grad: linear-gradient(135deg, var(--accent1), var(--accent2));
+      --text-main: #e6edf3;
+      --text-muted: #8b949e;
+      --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+      --radius: 16px;
+      --tr: 0.3s ease;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Outfit', sans-serif; }
+    
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle at 15% 20%, rgba(56, 139, 253, 0.15) 0%, transparent 50%),
+                        radial-gradient(circle at 85% 75%, rgba(88, 214, 245, 0.1) 0%, transparent 50%);
+      background-attachment: fixed;
+      color: var(--text-main);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* GLASSMORPHISM UTILS */
+    .glass {
+      background: var(--panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    /* HEADER */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 15px 30px;
+      margin: 15px 20px 0;
+      z-index: 10;
+    }
+    
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--accent-grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .logo img { width: 32px; height: 32px; border-radius: 8px; }
+
+    .nav-buttons {
+      display: flex;
+      gap: 15px;
+    }
+    
+    .nav-btn {
+      text-decoration: none;
+      color: var(--text-main);
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      transition: var(--tr);
+      cursor: pointer;
+    }
+    .nav-btn:hover { background: rgba(255,255,255,0.1); transform: translateY(-2px); }
+    .nav-btn.active { background: var(--accent-grad); border: none; color: #000; }
+
+    /* MAIN LAYOUT */
+    main {
+      flex: 1;
+      display: flex;
+      gap: 20px;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    /* LEFT SIDEBAR - FILTERS & WEATHER */
+    aside {
+      width: 350px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      overflow-y: auto;
+    }
+    
+    /* WEATHER CARD */
+    .local-env-card {
+      padding: 25px;
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .local-env-card::before {
+      content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: var(--accent-grad); opacity: 0.1; z-index: -1;
+    }
+    .weather-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .w-temp { font-size: 3rem; font-weight: 800; line-height: 1; }
+    .w-cond { font-size: 1.2rem; font-weight: 600; color: var(--accent2); margin-top: 5px; }
+    .w-mood { margin-top: 15px; font-size: 0.9rem; color: var(--text-muted); }
+    .w-mood span { color: var(--text-main); font-weight: 600; }
+
+    /* FILTER SECTION */
+    .filter-section {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    .filter-group-title {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+    .pill-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .pill {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: var(--tr);
+    }
+    .pill:hover { background: rgba(255,255,255,0.1); color: var(--text-main); }
+    .pill.active { background: var(--accent-grad); color: #000; border-color: transparent; font-weight: 600; }
+    .pill.special-pill {
+      border: 1px solid rgba(255, 71, 87, 0.5);
+      color: #ff4757;
+    }
+    .pill.special-pill:hover {
+      background: rgba(255, 71, 87, 0.1);
+    }
+    .pill.special-pill.active {
+      background: linear-gradient(135deg, #ff4757, #ff6b81);
+      color: #fff;
+      border: none;
+    }
+
+    /* RIGHT AREA - PLAYLIST */
+    .playlist-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 20px;
+    }
+    .playlist-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .playlist-header h2 { font-size: 1.8rem; font-weight: 800; }
+    .track-count { color: var(--text-muted); font-size: 0.9rem; }
+
+    .songs-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding-right: 10px;
+    }
+    .songs-list::-webkit-scrollbar { width: 6px; }
+    .songs-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+    .song-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 15px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: var(--tr);
+      gap: 15px;
+    }
+    .song-item:hover {
+      background: rgba(255,255,255,0.06);
+      border-color: var(--border);
+    }
+    .song-item.playing {
+      background: rgba(255, 107, 107, 0.1);
+      border-color: var(--accent1);
+    }
+    
+    .song-idx { width: 25px; text-align: center; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+    .song-item.playing .song-idx { color: var(--accent1); }
+    
+    .song-icon {
+      width: 45px; height: 45px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.05);
+      display: flex; justify-content: center; align-items: center;
+      color: var(--accent2);
+    }
+    .song-info { flex: 1; overflow: hidden; }
+    .song-title { font-weight: 600; font-size: 1rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+    .song-meta { font-size: 0.8rem; color: var(--text-muted); display: flex; gap: 10px; }
+    .meta-tag { background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; }
+
+    .dl-btn {
+      color: var(--text-muted);
+      transition: var(--tr);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      border-radius: 50%;
+    }
+    .dl-btn:hover {
+      color: var(--accent1);
+      background: rgba(255, 255, 255, 0.1);
+      transform: scale(1.1);
+    }
+
+    /* BOTTOM PLAYER */
+    .player-dock {
+      height: 90px;
+      margin: 0 20px 20px;
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .now-playing-info {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      width: 30%;
+    }
+    .np-icon {
+      width: 50px; height: 50px;
+      border-radius: 12px;
+      background: var(--accent-grad);
+      display: flex; justify-content: center; align-items: center;
+      box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+    }
+    .np-text { overflow: hidden; }
+    .np-title { font-weight: 800; font-size: 1.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .np-artist { font-size: 0.85rem; color: var(--text-muted); }
+
+    .player-controls {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-buttons {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .ctrl-btn {
+      background: none; border: none; color: var(--text-muted);
+      cursor: pointer; transition: var(--tr);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .ctrl-btn:hover { color: var(--text-main); transform: scale(1.1); }
+    .play-btn {
+      width: 45px; height: 45px; border-radius: 50%;
+      background: var(--text-main); color: var(--bg);
+    }
+    .play-btn:hover { background: var(--accent2); }
+
+    .progress-container {
+      width: 100%; max-width: 500px;
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.75rem; color: var(--text-muted);
+    }
+    .progress-bar {
+      flex: 1; height: 6px; background: rgba(255,255,255,0.1);
+      border-radius: 3px; cursor: pointer; position: relative;
+    }
+    .progress-fill {
+      position: absolute; top: 0; left: 0; height: 100%; width: 0%;
+      background: var(--accent-grad); border-radius: 3px;
+    }
+
+    .player-right {
+      width: 30%;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 15px;
+    }
+    .vol-container {
+      display: flex; align-items: center; gap: 8px; width: 120px;
+    }
+    .vol-bar {
+      flex: 1; height: 5px; background: rgba(255,255,255,0.1);
+      border-radius: 3px; cursor: pointer; position: relative;
+    }
+    .vol-fill {
+      position: absolute; top: 0; left: 0; height: 100%; width: 100%;
+      background: var(--text-main); border-radius: 3px;
+    }
+
+    
+    /* Search bar in nav */
+    .nav-search {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .nav-search input {
+      background: rgba(56, 139, 253, 0.08);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      color: var(--text-main);
+      padding: 9px 16px 9px 38px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.88rem;
+      width: 200px;
+      outline: none;
+      transition: var(--tr);
+    }
+    .nav-search input:focus { width: 260px; border-color: var(--accent1); background: rgba(56,139,253,0.14); }
+    .nav-search svg { position: absolute; left: 12px; color: var(--text-muted); pointer-events: none; }
+    .search-dropdown {
+      position: absolute; top: calc(100% + 8px); left: 0; width: 300px;
+      background: #161b22; border: 1px solid var(--border); border-radius: 12px;
+      z-index: 999; display: none; overflow: hidden;
+    }
+    .search-item {
+      padding: 11px 16px; cursor: pointer; display: flex; align-items: center; gap: 12px;
+      font-size: 0.88rem; transition: var(--tr);
+    }
+    .search-item:hover { background: var(--panel-hover); }
+    
+    /* Dropdown options styling */
+    select option {
+      background-color: var(--bg);
+      color: var(--text-main);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="glass">
+    <div class="logo">
+      <img src="/static/logo.png" alt="Logo" style="width:32px;height:32px;border-radius:8px;">
+      MoodWave <span style="color:var(--accent2);font-size:0.75rem;margin-left:6px;background:rgba(88,214,245,0.1);padding:2px 8px;border-radius:8px;border:1px solid var(--border);">OFFLINE</span>
+    </div>
+    <div class="nav-search">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="searchInput" placeholder="Search songs, singers..." oninput="doSearch(this.value)" autocomplete="off">
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+    <div class="nav-buttons">
+      <button class="nav-btn" onclick="location.href='/'">Spotify</button>
+      <button class="nav-btn" onclick="location.href='/yt/'">YouTube</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT SIDEBAR -->
+    <aside>
+      <div class="local-env-card glass">
+        <div id="local-env-info-box" style="padding:20px;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;">
+            <div>
+              <div style="font-size:2.5rem;font-weight:800;line-height:1;">{{ weather.temp }}&deg;C</div>
+              <div style="font-size:1.1rem;font-weight:600;color:var(--accent2);margin-top:4px;">{{ weather.condition }}</div>
+            </div>
+            <div id="w-icon" style="font-size:2.5rem;"></div>
+          </div>
+          <div id="local-env-detail-box" style="background:rgba(56,139,253,0.08);border:1px solid var(--border);border-radius:10px;padding:12px;font-size:0.82rem;display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div><span style="color:var(--text-muted);">Time:</span> <span id="w-time">--</span></div>
+            <div><span style="color:var(--text-muted);">Period:</span> <span id="w-period">--</span></div>
+            <div><span style="color:var(--text-muted);">Season:</span> <span id="w-season">--</span></div>
+            <div><span style="color:var(--text-muted);">Month:</span> <span id="w-month">--</span></div>
+            <div style="grid-column:span 2;"><span style="color:var(--text-muted);">Day:</span> <span id="w-day">--</span></div>
+          </div>
+          <div style="margin-top:12px;">
+            <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:6px;">Weather Preference</div>
+            <select id="env-select" onchange="changeWeather(this.value)" style="width:100%;background:rgba(56,139,253,0.1);border:1px solid var(--border);border-radius:8px;color:var(--text-main);padding:8px 12px;font-family:'Outfit',sans-serif;font-size:0.88rem;cursor:pointer;outline:none;">
+              <option value="Auto" {% if sel_weather=='Auto' %}selected{% endif %}>Auto (Clock-based)</option>
+              <option value="Sunny" {% if sel_weather=='Sunny' %}selected{% endif %}>Sunny</option>
+              <option value="Rainy" {% if sel_weather=='Rainy' %}selected{% endif %}>Rainy</option>
+              <option value="Cloudy" {% if sel_weather=='Cloudy' %}selected{% endif %}>Cloudy</option>
+              <option value="Night" {% if sel_weather=='Night' %}selected{% endif %}>Night</option>
+              <option value="Winter" {% if sel_weather=='Winter' %}selected{% endif %}>Winter</option>
+              <option value="Monsoon" {% if sel_weather=='Monsoon' %}selected{% endif %}>Monsoon</option>
+              <option value="Summer" {% if sel_weather=='Summer' %}selected{% endif %}>Summer</option>
+              <option value="Autumn" {% if sel_weather=='Autumn' %}selected{% endif %}>Autumn</option>
+            </select>
+          </div>
+          <div style="margin-top:10px;font-size:0.82rem;">Suggested Mood: <span style="color:var(--accent1);font-weight:700;">{{ suggested_mood }}</span></div>
+        </div>
+      </div>
+
+      <form id="filterForm" method="POST" action="/offline" style="display:none;">
+        <input type="hidden" name="singer" id="in_singer" value="{{ sel_singer }}">
+        <input type="hidden" name="mood" id="in_mood" value="{{ sel_mood }}">
+        <input type="hidden" name="lang" id="in_lang" value="{{ sel_lang }}">
+        <input type="hidden" name="manual_weather" value="{{ sel_weather }}">
+      </form>
+
+      <div class="filter-section glass">
+        <div class="filter-group-title">Languages</div>
+        <div class="pill-container">
+          {% for l in langs %}
+            <div class="pill {% if l == sel_lang %}active{% endif %} {% if l == 'All' %}special-pill{% endif %}" onclick="setFilter('lang', '{{ l }}')">{{ l }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="filter-group-title" style="margin-top:15px;">Singers</div>
+        <div class="pill-container">
+          {% for s in singers %}
+            <div class="pill {% if s == sel_singer %}active{% endif %} {% if s == 'All' %}special-pill{% endif %}" onclick="setFilter('singer', '{{ s }}')">{{ s }}</div>
+          {% endfor %}
+        </div>
+
+        <div class="filter-group-title" style="margin-top:15px;">Moods</div>
+        <div class="pill-container">
+          {% for m in moods %}
+            <div class="pill {% if m == sel_mood %}active{% endif %} {% if m in ['All', 'Weather Match'] %}special-pill{% endif %}" onclick="setFilter('mood', '{{ m }}')">{{ m }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT PLAYLIST -->
+    <div class="playlist-area glass">
+      <div class="playlist-header">
+        <h2>Local Library</h2>
+        <div class="track-count">{{ songs|length }} tracks found</div>
+      </div>
+      
+      <div class="songs-list" id="songsList">
+        {% for song in songs %}
+        <div class="song-item" onclick='playTrack({{ loop.index0 }}, {{ song | tojson }})' id="song-idx-{{ loop.index0 }}">
+          <div class="song-idx">{{ loop.index }}</div>
+          <div class="song-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          </div>
+          <div class="song-info">
+            <div class="song-title">{{ song.title }}</div>
+            <div class="song-meta">
+              <span>{{ song.singer }}</span> &bull; 
+              <span class="meta-tag">{{ song.lang }}</span>
+              <span class="meta-tag" style="background: rgba(254, 202, 87, 0.15); color: var(--accent2);">{{ song.mood }}</span>
+            </div>
+          </div>
+          <div class="song-action" style="display:flex; gap:12px; align-items:center;">
+            <a href="{{ song.url }}" download="{{ song.title }}.mp3" class="dl-btn" title="Download" onclick="event.stopPropagation();">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </a>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" style="opacity:0.6"><path d="M8 5v14l11-7z"/></svg>
+          </div>
+        </div>
+        {% endfor %}
+        
+        {% if not songs %}
+        <div style="text-align: center; padding: 40px; color: var(--text-muted);">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" style="margin-bottom:15px;"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+          <p>No tracks matched your filters.<br>Try selecting "All".</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </main>
+
+  <!-- BOTTOM PLAYER -->
+  <div class="player-dock glass">
+    <div class="now-playing-info">
+      <div class="np-icon">
+        <svg id="np-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+      </div>
+      <div class="np-text">
+        <div class="np-title" id="pTitle">Ready to play</div>
+        <div class="np-artist" id="pArtist">Select a track</div>
+      </div>
+    </div>
+    
+    <div class="player-controls">
+      <div class="control-buttons">
+        <button class="ctrl-btn" onclick="prevSong()"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></button>
+        <button class="ctrl-btn play-btn" id="playBtn" onclick="togglePlay()"><svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" id="playIcon"><path d="M8 5v14l11-7z"/></svg></button>
+        <button class="ctrl-btn" onclick="nextSong()"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></button>
+        
+        <div style="width: 1px; height: 24px; background: rgba(255,255,255,0.1); margin: 0 5px;"></div>
+        
+        <a id="np-download" href="#" download class="ctrl-btn" title="Download Current Track">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        </a>
+      </div>
+      <div class="progress-container">
+        <span id="cTime">0:00</span>
+        <div class="progress-bar" id="pBar" onclick="seek(event)">
+          <div class="progress-fill" id="pFill"></div>
+        </div>
+        <span id="tTime">0:00</span>
+      </div>
+    </div>
+    
+    <div class="player-right">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+      <div class="vol-container">
+        <div class="vol-bar" id="vBar" onclick="setVol(event)">
+          <div class="vol-fill" id="vFill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIO ELEMENT -->
+  <audio id="audioPlayer"></audio>
+
+
+
+  <!-- SCRIPTS -->
+
+  <script>
+    // --- FILTERS ---
+    function setFilter(type, val) {
+      document.getElementById('in_' + type).value = val;
+      document.getElementById('filterForm').submit();
+    }
+
+    // --- PLAYER LOGIC ---
+    let currentSongs = {{ songs | tojson | safe }};
+    let currentIndex = -1;
+    const audio = document.getElementById("audioPlayer");
+    const playBtn = document.getElementById("playBtn");
+    const playIcon = document.getElementById("playIcon");
+    const pTitle = document.getElementById("pTitle");
+    const pArtist = document.getElementById("pArtist");
+    const pFill = document.getElementById("pFill");
+    const cTime = document.getElementById("cTime");
+    const tTime = document.getElementById("tTime");
+    
+    function playTrack(idx, songObj) {
+      if(!currentSongs || currentSongs.length === 0) return;
+      currentIndex = idx;
+      let song = songObj || currentSongs[idx];
+      
+      // Update UI
+      document.querySelectorAll('.song-item').forEach(el => el.classList.remove('playing'));
+      const activeEl = document.getElementById('song-idx-' + idx);
+      if(activeEl) {
+        activeEl.classList.add('playing');
+        activeEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      
+      pTitle.innerText = song.title;
+      pArtist.innerText = song.singer;
+      
+      const dlBtn = document.getElementById("np-download");
+      dlBtn.href = song.url;
+      dlBtn.download = song.title + ".mp3";
+      
+      audio.src = song.url;
+      audio.play().then(() => updatePlayIcon(true)).catch(e => console.error(e));
+    }
+
+    function togglePlay() {
+      if(currentIndex === -1 && currentSongs.length > 0) { playTrack(0); return; }
+      if(audio.paused) { audio.play(); updatePlayIcon(true); }
+      else { audio.pause(); updatePlayIcon(false); }
+    }
+    function nextSong() {
+      if(currentSongs.length === 0) return;
+      let nx = currentIndex + 1;
+      if(nx >= currentSongs.length) nx = 0;
+      playTrack(nx);
+    }
+    function prevSong() {
+      if(currentSongs.length === 0) return;
+      let pv = currentIndex - 1;
+      if(pv < 0) pv = currentSongs.length - 1;
+      playTrack(pv);
+    }
+    
+    function updatePlayIcon(isPlaying) {
+      if(isPlaying) {
+        playIcon.innerHTML = '<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>';
+      } else {
+        playIcon.innerHTML = '<path d="M8 5v14l11-7z"/>';
+      }
+    }
+
+    audio.addEventListener("timeupdate", () => {
+      if(!audio.duration) return;
+      const pct = (audio.currentTime / audio.duration) * 100;
+      pFill.style.width = pct + "%";
+      cTime.innerText = fmtTime(audio.currentTime);
+      tTime.innerText = fmtTime(audio.duration);
+    });
+    audio.addEventListener("ended", nextSong);
+
+    function fmtTime(sec) {
+      let m = Math.floor(sec / 60);
+      let s = Math.floor(sec % 60);
+      return m + ":" + (s<10?'0':'') + s;
+    }
+    function seek(e) {
+      const b = document.getElementById("pBar");
+      const r = b.getBoundingClientRect();
+      const pct = (e.clientX - r.left) / r.width;
+      if(audio.duration) audio.currentTime = pct * audio.duration;
+    }
+    function setVol(e) {
+      const b = document.getElementById("vBar");
+      const r = b.getBoundingClientRect();
+      let pct = (e.clientX - r.left) / r.width;
+      pct = Math.max(0, Math.min(1, pct));
+      audio.volume = pct;
+      document.getElementById("vFill").style.width = (pct*100) + "%";
+    }
+    
+
+
+    // Auto-init volume
+    audio.volume = 0.8;
+    document.getElementById("vFill").style.width = "80%";
+
+    // --- WEATHER CLOCK DISPLAY ---
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    const icons = { Sunny:'☀️', Rainy:'🌧️', Cloudy:'⛅', Night:'🌙', Winter:'❄️', Monsoon:'🌦️', Summer:'🌞', Autumn:'🍂', Auto:'🌡️' };
+    function getSeason(m) {
+      if(m>=3&&m<=5) return 'Spring/Summer';
+      if(m>=6&&m<=8) return 'Monsoon';
+      if(m>=9&&m<=11) return 'Autumn';
+      return 'Winter';
+    }
+    function getPeriod(h) {
+      if(h>=5&&h<12) return 'Morning';
+      if(h>=12&&h<17) return 'Afternoon';
+      if(h>=17&&h<20) return 'Evening';
+      return 'Night';
+    }
+    function updateClock() {
+      const now = new Date();
+      const h = now.getHours(), m = now.getMonth()+1;
+      const hh = h.toString().padStart(2,'0');
+      const mm = now.getMinutes().toString().padStart(2,'0');
+      document.getElementById('w-time').innerText = hh + ':' + mm;
+      document.getElementById('w-period').innerText = getPeriod(h);
+      document.getElementById('w-season').innerText = getSeason(m);
+      document.getElementById('w-month').innerText = months[now.getMonth()];
+      document.getElementById('w-day').innerText = days[now.getDay()] + ', ' + now.getDate() + ' ' + months[now.getMonth()];
+      const cond = document.getElementById('env-select').value;
+      document.getElementById('w-icon').innerText = icons[cond] || '🌡️';
+    }
+    updateClock();
+    setInterval(updateClock, 60000);
+
+    // --- WEATHER DROPDOWN CHANGE ---
+    function changeWeather(val) {
+      const form = document.getElementById('filterForm');
+      // swap hidden input for manual_weather
+      let inp = form.querySelector('[name="manual_weather"]');
+      if(inp) inp.value = val;
+      form.submit();
+    }
+
+    // --- SEARCH ---
+    const allSongs = {{ songs | tojson | safe }};
+    function doSearch(q) {
+      const dd = document.getElementById('searchDropdown');
+      if(!q.trim()) { dd.style.display='none'; return; }
+      const results = allSongs.filter(s =>
+        s.title.toLowerCase().includes(q.toLowerCase()) ||
+        s.singer.toLowerCase().includes(q.toLowerCase())
+      ).slice(0, 8);
+      if(!results.length) { dd.style.display='none'; return; }
+      dd.innerHTML = results.map((s,i) => `
+        <div class="search-item" onclick="playSearchResult('${s.id}')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent1)" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <div>
+            <div style="font-weight:600;">${s.title}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);">${s.singer} · ${s.lang}</div>
+          </div>
+        </div>
+      `).join('');
+      dd.style.display = 'block';
+    }
+    function playSearchResult(id) {
+      const idx = allSongs.findIndex(s => s.id === id);
+      if(idx >= 0) {
+        currentSongs = allSongs;
+        document.getElementById('searchDropdown').style.display='none';
+        document.getElementById('searchInput').value='';
+        playTrack(idx);
+      }
+    }
+    document.addEventListener('click', e => {
+      if(!e.target.closest('.nav-search')) document.getElementById('searchDropdown').style.display='none';
+    });
+  </script>
+</body>
+</html>

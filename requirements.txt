@@ -1,0 +1,6 @@
+flask
+gunicorn
+spotipy
+requests
+youtube-search-python
+python-dotenv

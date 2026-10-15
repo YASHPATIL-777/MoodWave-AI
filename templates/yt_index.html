@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MoodWave — YouTube Player</title>
+  <meta name="description"
+    content="MoodWave YouTube Player — weather-based music recommendations powered by YouTube." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #07070f;
+      --border: rgba(255, 255, 255, .10);
+      --accent: #ff4ecd;
+      --accent2: #3cf0ff;
+      --accent-sp: #1db954;
+      --txt: #f0f0ff;
+      --muted: #9896b8;
+      --r: 18px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, .6);
+      --tr: 0.28s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .mesh-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(ellipse at 10% 15%, rgba(255, 78, 205, .18) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 25%, rgba(60, 240, 255, .14) 0%, transparent 55%),
+        radial-gradient(ellipse at 50% 90%, rgba(255, 78, 205, .09) 0%, transparent 50%),
+        linear-gradient(135deg, #07070f 0%, #110720 50%, #07100f 100%);
+      animation: meshPan 18s ease-in-out infinite alternate;
+    }
+
+    @keyframes meshPan {
+      0% {
+        filter: hue-rotate(0deg);
+      }
+
+      100% {
+        filter: hue-rotate(12deg);
+      }
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, .15);
+      border-radius: 3px;
+    }
+
+    #hdr {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 24px;
+      background: rgba(7, 7, 15, .90);
+      backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+
+    .logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-size: 1.12rem;
+      font-weight: 800;
+      letter-spacing: -.3px;
+      flex-shrink: 0;
+    }
+
+    .logo-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      object-fit: cover;
+      box-shadow: 0 0 20px rgba(255, 78, 205, .5);
+    }
+
+    .logo-wrap span {
+      color: var(--accent);
+    }
+
+    .sp-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 50px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent-sp), #18a845);
+      color: #000;
+      font-family: 'Inter', sans-serif;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--tr);
+      box-shadow: 0 4px 18px rgba(29, 185, 84, .4);
+    }
+
+    .sp-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(29, 185, 84, .5);
+    }
+
+    #main {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 330px 1fr;
+      gap: 16px;
+      padding: 16px 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+      min-height: calc(100vh - 60px);
+    }
+
+    @media (max-width: 960px) {
+      #main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      #hdr {
+        flex-direction: column;
+        padding: 14px;
+        gap: 12px;
+      }
+
+      #topbar-search {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      .sp-btn {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .controls {
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .ctl-left {
+        justify-content: center;
+        width: 100%;
+        padding-bottom: 5px;
+      }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, .055), rgba(255, 255, 255, .02));
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+    }
+
+    #lp {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .form-head {
+      padding: 16px 18px 0;
+      font-size: .72rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .form-body {
+      padding: 14px 18px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 11px;
+    }
+
+    .fg {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .fl {
+      font-size: .72rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px 13px;
+      background: rgba(0, 0, 0, .28);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--txt);
+      font-family: 'Inter', sans-serif;
+      font-size: .84rem;
+      outline: none;
+      transition: var(--tr);
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(255, 78, 205, .12);
+    }
+
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 11 11'%3E%3Cpath fill='%23888' d='M5.5 7L1 2h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+    }
+
+    select option {
+      background: #141428;
+    }
+
+    .row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    #locbtn-yt {
+      width: 100%;
+      background: rgba(255, 78, 205, .08);
+      border: 1px solid rgba(255, 78, 205, .22);
+      color: var(--accent);
+      padding: 9px 13px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: .8rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: var(--tr);
+    }
+
+    #locbtn-yt:hover {
+      background: rgba(255, 78, 205, .16);
+      border-color: rgba(255, 78, 205, .45);
+      transform: translateY(-1px);
+    }
+
+    #locbtn-yt:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+
+
+    .btn-load {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #07070f;
+      font-family: 'Inter', sans-serif;
+      font-size: .9rem;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .5px;
+      transition: var(--tr);
+    }
+
+    .btn-load:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(255, 78, 205, .35);
+    }
+
+    .error-box {
+      padding: 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 93, 93, .35);
+      background: rgba(255, 93, 93, .08);
+      color: #ffd7d7;
+      font-size: .82rem;
+    }
+
+    .weather-card {
+      padding: 16px 18px;
+      border-top: 1px solid var(--border);
+      animation: fadeUp .4s ease;
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    .wc-city {
+      font-size: 1rem;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .wc-type {
+      font-size: .75rem;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .wc-temp {
+      font-size: 2.6rem;
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    #rp {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10, 8, 22, .6);
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar h2 {
+      font-size: 1rem;
+      font-weight: 800;
+      margin: 0;
+    }
+
+    .yt-badge {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      font-size: .8rem;
+      font-weight: 800;
+      letter-spacing: .5px;
+      color: var(--txt);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, .15);
+    }
+
+    .yt-badge .yt-icon {
+      color: #ff0000;
+      display: flex;
+    }
+
+    .yt-badge .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ff4d4d;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .2
+      }
+    }
+
+    .music-wave {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 32px;
+      padding: 0 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, .15);
+    }
+
+    .wb {
+      width: 3px;
+      border-radius: 2px;
+      background: linear-gradient(to top, var(--accent2), var(--accent));
+      animation: wva 1.2s ease-in-out infinite;
+      opacity: .2;
+    }
+
+    .wb.playing {
+      opacity: 1;
+    }
+
+    .wb:nth-child(1) {
+      height: 10px;
+      animation-delay: 0s
+    }
+
+    .wb:nth-child(2) {
+      height: 18px;
+      animation-delay: .1s
+    }
+
+    .wb:nth-child(3) {
+      height: 26px;
+      animation-delay: .2s
+    }
+
+    .wb:nth-child(4) {
+      height: 14px;
+      animation-delay: .3s
+    }
+
+    .wb:nth-child(5) {
+      height: 22px;
+      animation-delay: .15s
+    }
+
+    .wb:nth-child(6) {
+      height: 28px;
+      animation-delay: .05s
+    }
+
+    .wb:nth-child(7) {
+      height: 16px;
+      animation-delay: .25s
+    }
+
+    .wb:nth-child(8) {
+      height: 24px;
+      animation-delay: .35s
+    }
+
+    .wb:nth-child(9) {
+      height: 12px;
+      animation-delay: .45s
+    }
+
+    .wb:nth-child(10) {
+      height: 20px;
+      animation-delay: .1s
+    }
+
+    .wb:nth-child(11) {
+      height: 28px;
+      animation-delay: .2s
+    }
+
+    .wb:nth-child(12) {
+      height: 11px;
+      animation-delay: .3s
+    }
+
+    .wb:nth-child(13) {
+      height: 19px;
+      animation-delay: .4s
+    }
+
+    .wb:nth-child(14) {
+      height: 25px;
+      animation-delay: .05s
+    }
+
+    .wb:nth-child(15) {
+      height: 13px;
+      animation-delay: .15s
+    }
+
+    @keyframes wva {
+
+      0%,
+      100% {
+        transform: scaleY(.3);
+      }
+
+      50% {
+        transform: scaleY(1);
+      }
+    }
+
+    .center-grid {
+      display: grid;
+      grid-template-columns: 1.25fr .75fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    @media (max-width: 1100px) {
+      .center-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .player-box {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(0, 0, 0, .22);
+      overflow: hidden;
+    }
+
+    .player-wrap {
+      position: relative;
+      aspect-ratio: 16/9;
+      background: rgba(0, 0, 0, .4);
+    }
+
+    #player {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      inset: 0;
+    }
+
+    #hint {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, .6);
+      border: 1px solid rgba(255, 255, 255, .10);
+      color: var(--muted);
+      font-size: .8rem;
+      display: none;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 11px 14px;
+      border-top: 1px solid rgba(255, 255, 255, .06);
+      background: rgba(7, 7, 20, .8);
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+
+    .ctl-left {
+      display: flex;
+      gap: 7px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .cbtn {
+      border: 1px solid rgba(255, 255, 255, .12);
+      background: rgba(255, 255, 255, .05);
+      color: var(--txt);
+      border-radius: 11px;
+      padding: 8px 14px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: .85rem;
+      font-family: 'Inter', sans-serif;
+      min-width: 42px;
+      text-align: center;
+      transition: var(--tr);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+
+    .cbtn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    #playPauseBtn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #07070f;
+      border: none;
+      min-width: 52px;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      padding: 0;
+      font-size: 1.1rem;
+    }
+
+    #playPauseBtn:hover {
+      transform: scale(1.08);
+      color: #07070f;
+      box-shadow: 0 6px 20px rgba(255, 78, 205, .4);
+    }
+
+    .cbtn.on {
+      border-color: var(--accent2);
+      color: var(--accent2);
+      box-shadow: 0 0 0 3px rgba(60, 240, 255, .12);
+      background: rgba(60, 240, 255, .08);
+    }
+
+    .cbtn.yt-open {
+      background: #cc0000;
+      border-color: #cc0000;
+      color: #fff;
+      border-radius: 20px;
+      box-shadow: 0 0 14px rgba(204, 0, 0, .4);
+      padding: 6px 14px;
+    }
+
+    .cbtn.yt-open:hover {
+      background: #a30000;
+      border-color: #a30000;
+      color: #fff;
+      box-shadow: 0 0 20px rgba(163, 0, 0, .6);
+      transform: scale(1.05);
+    }
+
+    .cbtn.shuffle-on {
+      border-color: var(--accent);
+      color: var(--accent);
+      background: rgba(255, 78, 205, .1);
+      box-shadow: 0 0 0 3px rgba(255, 78, 205, .12);
+    }
+
+    .list-box {
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(255, 255, 255, .02);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .list-head {
+      padding: 11px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, .07);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(10, 8, 24, .8);
+    }
+
+    .list-head b {
+      font-size: .82rem;
+    }
+
+    .list-head-btns {
+      display: flex;
+      gap: 7px;
+    }
+
+    #songs-list {
+      overflow-y: auto;
+      max-height: 400px;
+    }
+
+    .song-item {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05);
+      cursor: pointer;
+      transition: var(--tr);
+    }
+
+    .song-item:hover {
+      background: rgba(255, 78, 205, .09);
+    }
+
+    .song-item.active {
+      background: rgba(60, 240, 255, .09);
+      border-left: 3px solid var(--accent2);
+    }
+
+    .song-title {
+      font-weight: 700;
+      font-size: .82rem;
+      margin: 0 0 4px;
+      line-height: 1.35;
+    }
+
+    .song-meta {
+      color: var(--muted);
+      font-size: .73rem;
+    }
+
+    .footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .77rem;
+      padding: 10px 0 6px;
+    }
+
+    #tc {
+      position: fixed;
+      top: 72px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      background: rgba(10, 10, 24, .95);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: .82rem;
+      max-width: 300px;
+      animation: tin .25s ease;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .toast.success {
+      border-left: 3px solid var(--accent-sp);
+    }
+
+    .toast.error {
+      border-left: 3px solid #e74c3c;
+    }
+
+    @keyframes tin {
+      from {
+        opacity: 0;
+        transform: translateX(110%)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255, 78, 205, .3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* Loading Overlay — hidden by default, runs in background */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: rgba(7, 7, 15, .97);
+      backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .load-spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 78, 205, .2);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+    }
+
+    #loading-status {
+      font-size: .95rem;
+      font-weight: 700;
+      color: var(--txt);
+    }
+
+    #loading-sub {
+      font-size: .78rem;
+      color: var(--muted);
+    }
+
+    /* YouTube header button */
+    .yt-hdr-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 18px;
+      border-radius: 50px;
+      border: none;
+      background: linear-gradient(135deg, #cc0000, #ff4444);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: var(--tr);
+      box-shadow: 0 4px 18px rgba(204, 0, 0, .35);
+      white-space: nowrap;
+    }
+
+    .yt-hdr-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(204, 0, 0, .5);
+    }
+
+    /* ── SEARCH BAR IN TOPBAR ── */
+    #topbar-search {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      max-width: 360px;
+      position: relative;
+    }
+
+    #yt-search-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border);
+      color: var(--txt);
+      padding: 8px 14px 8px 36px;
+      border-radius: 50px;
+      font-size: .82rem;
+      outline: none;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif;
+    }
+
+    #yt-search-input:focus {
+      border-color: var(--accent);
+      background: rgba(255, 78, 205, 0.07);
+      box-shadow: 0 0 0 3px rgba(255, 78, 205, .1);
+    }
+
+    #yt-search-input::placeholder {
+      color: var(--muted);
+    }
+
+    .yt-search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      pointer-events: none;
+      display: flex;
+    }
+
+    #yt-search-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #07070f;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 50px;
+      font-weight: 700;
+      font-size: .8rem;
+      cursor: pointer;
+      transition: var(--tr);
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #yt-search-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 18px rgba(255, 78, 205, .35);
+    }
+
+    #yt-search-btn:disabled {
+      opacity: .6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* Search history dropdown */
+    #yt-search-history {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: rgba(10, 10, 24, .97);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      z-index: 9999;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .55);
+      display: none;
+    }
+
+    #yt-search-history.open {
+      display: block;
+    }
+
+    .ysh-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px 6px;
+      font-size: .7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 600;
+    }
+
+    .ysh-clear {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: .7rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      padding: 2px 6px;
+      border-radius: 5px;
+      transition: var(--tr);
+    }
+
+    .ysh-clear:hover {
+      color: #e74c3c;
+    }
+
+    .ysh-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: var(--tr);
+      border-top: 1px solid rgba(255, 255, 255, .04);
+      font-size: .82rem;
+    }
+
+    .ysh-item:hover {
+      background: rgba(255, 78, 205, .09);
+    }
+
+    .ysh-item-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ysh-item-del {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: .75rem;
+      padding: 2px 5px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: var(--tr);
+    }
+
+    .ysh-item:hover .ysh-item-del {
+      opacity: 1;
+    }
+
+    .ysh-item-del:hover {
+      color: #e74c3c;
+    }
+
+    /* ═══ EMOTION OVERLAY — Spotify-matching layout ═══ */
+    #emo-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: linear-gradient(135deg, #07070f 0%, #0d0820 60%, #08101a 100%);
+      z-index: 99999; display: none; flex-direction: column;
+      padding: 24px 28px; font-family: 'Inter', sans-serif;
+      overflow-y: auto;
+    }
+    #emo-overlay > * { position: relative; z-index: 1; }
+    .emo-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 22px; }
+    .emo-logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.15rem; }
+    .emo-logo img { width:34px; border-radius:9px; }
+    .emo-close { background: rgba(255,255,255,0.08); border: 1px solid var(--border); color: var(--txt); padding: 8px 16px; border-radius: 8px; cursor:pointer; transition:var(--tr); font-family:'Inter',sans-serif; }
+    .emo-close:hover { background: rgba(255,255,255,0.15); }
+
+    /* Main grid: left-panel | right playlist */
+    .emo-grid { display:grid; grid-template-columns:1fr 300px; gap:18px; align-items:stretch; }
+    .emo-left-panel { display:flex; flex-direction:column; gap:14px; }
+    /* Top row inside left panel: camera | emotion (3fr 2fr) */
+    .emo-top-cards { display:grid; grid-template-columns:3fr 2fr; gap:14px; }
+    @media(max-width:900px){ .emo-grid{grid-template-columns:1fr;} .emo-top-cards{grid-template-columns:1fr 1fr;} }
+    @media(max-width:600px){ .emo-top-cards{grid-template-columns:1fr;} }
+
+    .emo-card {
+      background: rgba(255,255,255,0.03); backdrop-filter:blur(22px);
+      border:1px solid var(--border); border-radius:16px;
+      padding:18px; display:flex; flex-direction:column;
+    }
+    .emo-header { font-size:.82rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+
+    /* Camera card */
+    .emo-cam-view {
+      flex:1; background:rgba(0,0,0,0.55); border-radius:10px;
+      border:1px solid rgba(255,255,255,0.1); position:relative;
+      overflow:hidden; min-height:170px; display:flex; align-items:center; justify-content:center;
+    }
+    #emo-video { width:100%; height:100%; object-fit:cover; display:none; }
+    .emo-cam-placeholder { text-align:center; color:var(--muted); font-size:.95rem; padding:14px; z-index:5; }
+    .emo-btns { display:flex; gap:8px; margin-top:10px; }
+    .emo-btn { flex:1; border:none; padding:9px; border-radius:8px; font-weight:700; cursor:pointer; transition:.2s; font-family:'Inter',sans-serif; font-size:.8rem; }
+    .emo-start { background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#07070f; }
+    .emo-start:hover { box-shadow:0 5px 18px rgba(255,78,205,.45); transform:translateY(-1px); }
+    .emo-stop  { background:rgba(255,255,255,0.07); border:1px solid var(--border); color:var(--muted); }
+    .emo-stop:hover  { border-color:#e74c3c; color:#e74c3c; }
+
+    /* Face count badge */
+    #emo-face-count { font-size:.68rem; font-weight:700; color:var(--accent2); background:rgba(60,240,255,0.12); border:1px solid rgba(60,240,255,0.3); padding:2px 9px; border-radius:20px; display:none; margin-left:auto; }
+
+    /* Emotion detect box */
+    .emo-detect-box { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,0.025); padding:14px; }
+    .emo-emoji { font-size:2.4rem; margin-bottom:8px; }
+    .emo-label { font-size:.88rem; font-weight:700; color:var(--txt); }
+    .emo-desc  { font-size:.7rem; color:var(--muted); margin-top:5px; }
+    /* Per-face rows (compact) */
+    .emo-detect-row { display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:80px; overflow-y:auto; }
+    .emo-face-row { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,0.2); border:1px solid rgba(255,255,255,0.05); border-radius:8px; padding:6px 10px; }
+    .emo-face-emoji { font-size:1.3rem; flex-shrink:0; }
+    .emo-face-info { flex:1; }
+    .emo-face-label { font-size:.78rem; font-weight:700; color:var(--txt); }
+    .emo-face-conf { font-size:.66rem; color:var(--muted); margin-top:1px; }
+    .emo-face-bar { height:3px; border-radius:2px; background:linear-gradient(90deg,var(--accent),var(--accent2)); margin-top:4px; transition:width .3s; }
+
+    /* ══ SPOTIFY-STYLE EMOTION MUSIC PLAYER BAR ══ */
+    .emp-card { flex-shrink:0; }
+    .emp-player { display:flex; align-items:center; gap:16px; width:100%; }
+
+    /* Vinyl art (spinning disc) */
+    .emp-art-wrap { position:relative; flex-shrink:0; width:66px; height:66px; }
+    #emp-art {
+      width:66px; height:66px; border-radius:50%; object-fit:cover;
+      box-shadow:0 0 14px rgba(255,78,205,.22); transition:box-shadow .4s;
+    }
+    .emp-art-wrap.emp-playing #emp-art {
+      animation:empSpin 8s linear infinite;
+      box-shadow:0 0 28px rgba(255,78,205,.7),0 0 55px rgba(60,240,255,.2);
+    }
+    .emp-disc-ring {
+      position:absolute; inset:-5px; border-radius:50%;
+      border:2.5px solid rgba(255,78,205,0); display:none;
+    }
+    .emp-art-wrap.emp-playing .emp-disc-ring {
+      display:block; border-color:rgba(255,78,205,.55);
+      box-shadow:0 0 14px rgba(255,78,205,.4);
+      animation:empRingSpin 3s linear infinite;
+    }
+    @keyframes empSpin    { to { transform:rotate(360deg); } }
+    @keyframes empRingSpin{ 0%{transform:rotate(0deg);border-color:rgba(255,78,205,.55);}50%{border-color:rgba(60,240,255,.7);}to{transform:rotate(360deg);border-color:rgba(255,78,205,.55);} }
+
+    /* Center: track info + progress + controls */
+    .emp-center { flex:1; display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .emp-info   { display:flex; flex-direction:column; gap:2px; }
+    .emp-tname  { font-size:.9rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--txt); }
+    .emp-tartist{ font-size:.7rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* Progress */
+    .emp-prog-wrap { display:flex; align-items:center; gap:7px; }
+    .emp-ptime { font-size:.62rem; color:var(--muted); flex-shrink:0; min-width:26px; }
+    .emp-prog-bar { flex:1; height:4px; background:rgba(255,255,255,.12); border-radius:2px; cursor:pointer; position:relative; }
+    .emp-prog-bar:hover { height:6px; }
+    .emp-prog-fill {
+      height:100%; border-radius:2px; width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      box-shadow:0 0 8px rgba(255,78,205,.55);
+      transition:width .4s linear; position:relative;
+    }
+    .emp-prog-fill::after {
+      content:''; position:absolute; right:-5px; top:50%; transform:translateY(-50%);
+      width:11px; height:11px; background:#fff; border-radius:50%;
+      box-shadow:0 0 8px rgba(255,78,205,.8); opacity:0; transition:opacity .2s;
+    }
+    .emp-prog-bar:hover .emp-prog-fill::after { opacity:1; }
+
+    /* Controls */
+    .emp-controls { display:flex; align-items:center; gap:9px; }
+    .emp-cbtn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; transition:var(--tr); padding:5px; border-radius:50%; }
+    .emp-cbtn:hover  { color:var(--txt); background:rgba(255,255,255,.08); }
+    .emp-cbtn.active { color:var(--accent); background:rgba(255,78,205,.12); }
+    #emp-play-btn {
+      width:40px; height:40px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border:none; border-radius:50%; color:#07070f; font-size:1rem;
+      cursor:pointer; transition:var(--tr); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 0 18px rgba(255,78,205,.5);
+    }
+    #emp-play-btn:hover { transform:scale(1.08); box-shadow:0 0 28px rgba(255,78,205,.8); }
+
+    /* Right: volume */
+    .emp-right { display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex-shrink:0; }
+    .emp-vol-row { display:flex; align-items:center; gap:6px; }
+    .emp-vol-row span { font-size:.85rem; color:var(--muted); }
+    #emp-vol-slider { width:90px; -webkit-appearance:none; height:4px; background:rgba(255,255,255,.12); border-radius:2px; outline:none; cursor:pointer; }
+    #emp-vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 5px rgba(255,78,205,.5); }
+
+    /* Playlist (right column) */
+    .emo-plist { flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,.02); }
+    .emo-song { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); font-size:.83rem; cursor:pointer; transition:var(--tr); display:flex; align-items:center; gap:10px; }
+    .emo-song:hover { background:rgba(255,78,205,.07); }
+    .emo-song.active-song { background:rgba(60,240,255,.08); border-left:3px solid var(--accent2); }
+    .emo-song-num { font-size:.72rem; color:var(--muted); width:16px; text-align:center; flex-shrink:0; }
+    .emo-song-title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+    .emo-song-play { color:var(--accent2); font-size:.75rem; flex-shrink:0; display:none; }
+    .emo-song.active-song .emo-song-play { display:block; }
+    .emo-song.active-song .emo-song-num { display:none; }
+    #emo-plist-empty { padding:30px; text-align:center; color:var(--muted); font-size:.85rem; }
+
+    /* Emotion Mode button in header */
+    .emo-btn-top {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      color: #07070f;
+      padding: 10px 20px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: var(--tr);
+      font-size: .88rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(255, 78, 205, 0.25);
+    }
+    .emo-btn-top:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(255, 78, 205, 0.4);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="mesh-bg"></div>
+  <div id="tc"></div>
+
+  <!-- ══ Emotion Mode Overlay (Spotify-layout) ══ -->
+  <div id="emo-overlay">
+    <div class="emo-top">
+      <div class="emo-logo"><img src="/static/logo.png" alt="logo"> Moodwave Music</div>
+      <button class="emo-close" onclick="closeEmotionMode()">← Back to Music</button>
+    </div>
+
+    <div class="emo-grid">
+
+      <!-- ── LEFT PANEL ── -->
+      <div class="emo-left-panel">
+
+        <!-- TOP ROW: Camera card | Emotion card -->
+        <div class="emo-top-cards">
+
+          <!-- Camera Card -->
+          <div class="emo-card">
+            <div class="emo-header" style="color:var(--accent2)">● Camera / Detect
+              <span id="emo-face-count">0 faces</span>
+            </div>
+            <div class="emo-cam-view">
+              <div class="emo-cam-placeholder" id="emo-placeholder">📷<br><br>Enable camera to start</div>
+              <video id="emo-video" autoplay muted playsinline></video>
+            </div>
+            <div class="emo-btns">
+              <button class="emo-btn emo-start" onclick="startEmotionCam()">► Start Camera</button>
+              <button class="emo-btn emo-stop"  onclick="stopEmotionCam()">■ Stop</button>
+            </div>
+          </div>
+
+          <!-- Emotion Display Card -->
+          <div class="emo-card">
+            <div class="emo-header">😄 Detected Emotion</div>
+            <div class="emo-detect-box">
+              <div class="emo-emoji" id="emo-display-emoji">👁️</div>
+              <div class="emo-label" id="emo-display-text">Waiting for camera...</div>
+              <div class="emo-desc"  id="emo-display-desc">Start camera to detect emotion</div>
+            </div>
+            <div class="emo-detect-row" id="emo-faces-list"></div>
+          </div>
+
+        </div><!-- /emo-top-cards -->
+
+        <!-- ══ SPOTIFY-STYLE MUSIC PLAYER BAR ══ -->
+        <div class="emo-card emp-card">
+          <div class="emp-player">
+
+            <!-- Vinyl Album Art -->
+            <div class="emp-art-wrap" id="emp-art-wrap">
+              <div class="emp-disc-ring"></div>
+              <img id="emp-art"
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='66' height='66'%3E%3Ccircle cx='33' cy='33' r='33' fill='%23141428'/%3E%3Ccircle cx='33' cy='33' r='9' fill='%23282848'/%3E%3Ctext x='33' y='37' text-anchor='middle' font-size='9' fill='%23333'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E"
+                alt="Now Playing">
+            </div>
+
+            <!-- Center: title + progress + controls -->
+            <div class="emp-center">
+              <div class="emp-info">
+                <div class="emp-tname"   id="emp-tname">— No track selected —</div>
+                <div class="emp-tartist" id="emp-tartist">Detect emotion to load playlist</div>
+              </div>
+              <div class="emp-prog-wrap">
+                <span class="emp-ptime" id="emp-ctime">0:00</span>
+                <div class="emp-prog-bar" onclick="empSeekYt(event)">
+                  <div class="emp-prog-fill" id="emp-prog-fill"></div>
+                </div>
+                <span class="emp-ptime" style="text-align:right" id="emp-ttime">0:00</span>
+              </div>
+              <div class="emp-controls">
+                <button class="emp-cbtn" id="emo-shuffle-btn" onclick="emoToggleShuffle()" title="Shuffle">🔀</button>
+                <button class="emp-cbtn" onclick="emoPrev()"        title="Previous">⏮</button>
+                <button id="emp-play-btn"  onclick="emoTogglePlay()" title="Play/Pause">▶</button>
+                <button class="emp-cbtn" onclick="emoNext()"        title="Next">⏭</button>
+                <button class="emp-cbtn" id="emo-repeat-btn" onclick="emoToggleRepeat()" title="Repeat">🔁</button>
+              </div>
+            </div>
+
+            <!-- Right: Volume -->
+            <div class="emp-right">
+              <div class="emp-vol-row">
+                <span>🔉</span>
+                <input type="range" id="emp-vol-slider" min="0" max="100" value="80" oninput="empVolYt(this.value)">
+                <span>🔊</span>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /emp-card -->
+
+      </div><!-- /emo-left-panel -->
+
+      <!-- ── RIGHT PANEL: Playlist ── -->
+      <div class="emo-card" style="min-height:100%">
+        <div class="emo-header">🎵 Your Playlist</div>
+        <div class="emo-plist">
+          <div id="emo-song-list">
+            <div id="emo-plist-empty">Detect emotion → Songs appear here</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /emo-grid -->
+  </div><!-- /emo-overlay -->
+
+  <!-- Loading Overlay -->
+  <div id="loading-overlay">
+    <div class="load-spinner"></div>
+    <div id="loading-status">Detecting your location...</div>
+    <div id="loading-sub">Please wait a moment</div>
+  </div>
+
+  <header id="hdr">
+    <div class="logo-wrap">
+      <img class="logo-img" src="/static/logo.png" alt="MoodWave">
+      MoodWave <span>Music</span>
+    </div>
+
+    <!-- Emotion Mode Button -->
+    <button class="emo-btn-top" onclick="openEmotionMode()">
+      Emotion Mode
+    </button>
+    
+    <!-- Search Bar -->
+    <div id="topbar-search">
+      <span class="yt-search-icon">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8" />
+          <line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+      </span>
+      <input type="text" id="yt-search-input" placeholder="Search song or artist..." autocomplete="off"
+        onkeydown="if(event.key==='Enter')doYtSearch()" onfocus="showYtHistory()" oninput="showYtHistory()">
+      <button id="yt-search-btn" onclick="doYtSearch()">Search</button>
+      <div id="yt-search-history">
+        <div class="ysh-header">
+          <span>🕙 Recent</span>
+          <button class="ysh-clear" onclick="clearYtHistory(event)">Clear all</button>
+        </div>
+        <div id="ysh-list"></div>
+      </div>
+    </div>
+
+
+    <div style="display:flex; gap:10px;">
+      <a class="sp-btn" href="/offline"
+        onclick="if(player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING){ player.pauseVideo(); setWave(false); }" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+        Offline Mode
+      </a>
+      <a class="sp-btn" href="/"
+        onclick="if(player && typeof player.getPlayerState === 'function' && player.getPlayerState() === YT.PlayerState.PLAYING){ player.pauseVideo(); setWave(false); }">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+        </svg>
+        Switch to Spotify
+      </a>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- LEFT -->
+    <aside id="lp">
+      <div class="card">
+        <div class="form-head">Weather + Filters</div>
+        <div class="form-body">
+          <form method="POST" id="mainForm" onsubmit="return validateForm(event)">
+            <div class="fg" style="margin-bottom:4px;">
+              <label class="fl">City</label>
+              <div style="display:flex;gap:7px;align-items:center;">
+                <input type="text" name="city" id="city" placeholder="Enter city name, e.g. Mumbai"
+                  oninput="userEditedCity = true" style="flex:1;">
+                <button type="submit"
+                  style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#07070f;border:none;padding:10px 18px;border-radius:12px;font-weight:800;font-size:.85rem;cursor:pointer;white-space:nowrap;font-family:'Inter',sans-serif;transition:var(--tr);flex-shrink:0;">Go</button>
+              </div>
+              <input type="hidden" id="lat">
+              <input type="hidden" id="lon">
+            </div>
+
+            <button type="button" id="locbtn-yt" onclick="useMyLocation()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
+                <circle cx="12" cy="12" r="9" stroke-dasharray="4 2" />
+              </svg>
+              &#x1F4CD; Use my live location
+            </button>
+
+            <div class="row2" style="margin-bottom:4px;">
+              <div class="fg">
+                <label class="fl">Singer</label>
+                <select name="singer" id="singer">
+                  <option value="">Any Artist</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label class="fl">Language</label>
+                <select name="language" id="language" onchange="updateSingersYt()">
+                  {% for l in languages %}
+                  <option value="{{ l }}" {% if l==selected_language %}selected{% endif %}>{{ l }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="fg" style="margin-bottom:4px;">
+              <label class="fl">Mood</label>
+              <select name="category" id="category">
+                {% for c in categories %}
+                <option value="{{ c }}" {% if c==selected_category %}selected{% endif %}>{{ c }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="fg" style="margin-bottom:10px;">
+              <label class="fl">Generation</label>
+              <select name="generation" id="generation">
+                {% for g in generations %}
+                <option value="{{ g }}" {% if g==selected_generation %}selected{% endif %}>{{ g }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <button class="btn-load" type="submit">Load Playlist</button>
+          </form>
+
+          {% if error %}
+          <div class="error-box" style="margin-top:10px;">{{ error }}</div>
+          {% endif %}
+        </div>
+
+        {% if weather_info %}
+        <div class="weather-card">
+          <div class="wc-city" id="lwCity">{{ weather_info.city }}</div>
+          <div class="wc-type" id="lwType">{{ weather_info.weather }} &bull; {{ weather_info.suggested }} mood &bull; {{
+            weather_info.season }} ({{ weather_info.month }})</div>
+          <div class="wc-temp" id="lwTemp">{{ weather_info.temp }}&#176;C</div>
+        </div>
+        {% else %}
+        <div class="weather-card" id="leftWeatherCard" style="display:none;">
+          <div class="wc-city" id="lwCity"></div>
+          <div class="wc-type" id="lwType"></div>
+          <div class="wc-temp" id="lwTemp"></div>
+        </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- RIGHT -->
+    <section id="rp">
+      <div class="card">
+        <div class="topbar">
+          <div class="topbar-left">
+            <h2>Now Playing</h2>
+            <div class="yt-badge">
+              <span class="yt-icon">
+                <svg width="16" height="11" viewBox="0 0 24 17" fill="currentColor">
+                  <path
+                    d="M23.5 2.7s-.3-2-1.2-2.9C21.2-.4 19.9-.4 19.3-.5 16.1-.7 12-.7 12-.7s-4.1 0-7.3.2C4.1-.4 2.8-.4 1.7.7.8 1.6.5 3.7.5 3.7S.2 6 .2 8.3v2.1c0 2.3.3 4.6.3 4.6s.3 2 1.2 2.9c1.1 1.2 2.6 1.1 3.3 1.2C7.2 19.2 12 19.2 12 19.2s4.6 0 7.3-.4c.6-.1 1.9-.1 3-1.3.9-.9 1.2-2.9 1.2-2.9s.3-2.3.3-4.6V7c0-2.3-.3-4.3-.3-4.3zm-14 9.1V4.7l8.3 3.6-8.3 3.5z" />
+                </svg>
+              </span>
+              <div class="dot"></div>
+              <span style="letter-spacing:.3px;">YouTube</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="music-wave" id="waveBar">
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+        </div>
+
+        <div class="center-grid">
+          <!-- Player -->
+          <div class="player-box">
+            <div class="player-wrap">
+              <div id="player"></div>
+              <div id="hint">This video can't be embedded. Use Open on YouTube.</div>
+            </div>
+
+            <div class="controls">
+              <div class="ctl-left">
+                <!-- Prev -->
+                <button class="cbtn" onclick="prevSong()" title="Previous">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 6h2v12H6V6zm3.5 6 8.5 6V6l-8.5 6z" />
+                  </svg>
+                </button>
+
+                <!-- Play/Pause -->
+                <button class="cbtn" id="playPauseBtn" onclick="togglePlay()" title="Play/Pause">
+                  <svg id="playIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7L8 5z" />
+                  </svg>
+                  <svg id="pauseIcon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"
+                    style="display:none;">
+                    <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
+                  </svg>
+                </button>
+
+                <!-- Next -->
+                <button class="cbtn" onclick="nextSong()" title="Next">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 18l8.5-6L6 6v12zm2-8.14 5.51 3.86L8 15.14V9.86zm7.5-3.86v12h2V6h-2z" />
+                  </svg>
+                </button>
+
+                <!-- Shuffle -->
+                <button class="cbtn" id="shuffleBtn" onclick="toggleShuffle()" title="Shuffle">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M10.59 9.17 5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm0.33 9.41-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
+                  </svg>
+                </button>
+
+                <!-- Repeat One -->
+                <button class="cbtn" id="repeatOneBtn" onclick="toggleRepeatOne()" title="Repeat One">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4zm-4-2V9h-1l-2 1v1h1.5v4H13z" />
+                  </svg>
+                </button>
+
+                <!-- Repeat All -->
+                <button class="cbtn" id="repeatAllBtn" onclick="toggleRepeatAll()" title="Repeat All">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
+                  </svg>
+                </button>
+
+                <button class="cbtn yt-open" onclick="openOnYouTube()" title="Open on YouTube">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M23.5 6.2s-.3-2-1.2-2.9c-1.1-1.2-2.4-1.2-3-1.3C16.6 2 12 2 12 2s-4.6 0-7.3.1c-.6.1-1.9.1-3 1.3C.8 4.2.5 6.2.5 6.2S.2 8.5.2 10.8v2.1c0 2.3.3 4.6.3 4.6s.3 2 1.2 2.9c1.1 1.2 2.6 1.1 3.3 1.2C7.2 21.8 12 22 12 22s4.6 0 7.3-.4c.6-.1 1.9-.1 3-1.3.9-.9 1.2-2.9 1.2-2.9s.3-2.3.3-4.6v-2.1C23.8 8.5 23.5 6.2 23.5 6.2zM9.7 15.5V8.3l8.1 3.6-8.1 3.6z" />
+                  </svg>
+                  <span style="font-weight:900;letter-spacing:-.5px;"><span style="color:#ffffff;">You</span>Tube</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Playlist -->
+          <div class="list-box">
+            <div class="list-head">
+              <b>Playlist</b>
+              <div class="list-head-btns">
+                <button class="cbtn" id="refreshBtn" onclick="refreshSongs()" title="Refresh Playlist">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                    <path
+                      d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div id="songs-list">
+              {% for s in playlist %}
+              <div class="song-item {% if loop.index0==0 %}active{% endif %}" onclick="playByIndex({{ loop.index0 }})">
+                <p class="song-title">{{ s.title }}</p>
+                <p class="song-meta">{{ s.singer }} &bull; {{ s.category }}{% if not s.embeddable %} &bull;
+                  (YouTube-only){% endif %}</p>
+              </div>
+              {% endfor %}
+              {% if not playlist %}
+              <div style="padding:28px;text-align:center;color:var(--muted);font-size:.84rem;">
+                <div style="font-size:2rem;margin-bottom:10px;">&#127925;</div>
+                Enter a city and click Load Playlist
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">&copy; MoodWave &mdash; SAKEC IT Developer</div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let songs = [
+      {% for s in playlist %}
+    { id: "{{ s.video_id }}", title: "{{ s.title | replace('"', '\\"') }}", emb: {{ 'true' if s.embeddable else 'false' }} },
+    {% endfor %}
+  ];
+
+    let seenVideoIds = new Set(songs.map(s => s.id));
+    let currentIndex = 0, player = null, isReady = false;
+    let repeatOne = false, repeatAll = false, shuffleOn = false;
+    let shuffleQueue = [], shuffleQueuePos = 0;
+    let locationFilledOnce = false, userEditedCity = false;
+    let isPlaying = false;
+    let isRefreshing = false;
+
+    // Track original playlist IDs permanently — refresh will always exclude these
+    const initialVideoIds = new Set(songs.map(s => s.id));
+    seenVideoIds = new Set(songs.map(s => s.id)); // reassign (already declared above)
+
+    // ── Shuffle queue ──────────────────────────────────────────────────────────
+    function buildShuffleQueue() {
+      shuffleQueue = songs.map((_, i) => i)
+        .filter(i => i !== currentIndex)
+        .sort(() => Math.random() - 0.5);
+      shuffleQueuePos = 0;
+    }
+
+    // ── UI helpers ─────────────────────────────────────────────────────────────
+    function setPlayPauseIcon(playing) {
+      document.getElementById("playIcon").style.display = playing ? "none" : "block";
+      document.getElementById("pauseIcon").style.display = playing ? "block" : "none";
+    }
+
+    function setActive(idx) {
+      document.querySelectorAll(".song-item").forEach(el => el.classList.remove("active"));
+      const el = document.querySelectorAll(".song-item")[idx];
+      if (el) { el.classList.add("active"); el.scrollIntoView({ block: "nearest" }); }
+    }
+
+    function showHint(v) { document.getElementById("hint").style.display = v ? "block" : "none"; }
+
+    function setWave(playing) {
+      isPlaying = playing;
+      setPlayPauseIcon(playing);
+      document.querySelectorAll("#waveBar .wb").forEach(b => b.classList.toggle("playing", playing));
+    }
+
+    function toast(msg, type = "success") {
+      const tc = document.getElementById("tc");
+      const t = document.createElement("div");
+      t.className = "toast " + type;
+      t.textContent = msg;
+      tc.appendChild(t);
+      setTimeout(() => t.remove(), 3500);
+    }
+
+    // ── YouTube IFrame API ─────────────────────────────────────────────────────
+    window.onYouTubeIframeAPIReady = function () {
+      // Filter out non-embeddable from initial server-rendered list
+      songs = songs.filter(s => s.emb);
+      // Rebuild playlist UI with only embeddable songs
+      rebuildPlaylistUI();
+      const first = songs.length ? songs[0].id : null;
+      player = new YT.Player("player", {
+        height: "100%", width: "100%",
+        videoId: first || "dQw4w9WgXcQ",
+        playerVars: {
+          autoplay: songs.length ? 1 : 0,
+          rel: 0,
+          playsinline: 1,
+          enablejsapi: 1,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: () => {
+            isReady = true;
+            if (songs.length) { currentIndex = 0; setActive(0); loadCurrent(); }
+          },
+          onStateChange: (e) => {
+            if (e.data === YT.PlayerState.PLAYING) { setWave(true); }
+            else if (e.data === YT.PlayerState.PAUSED) { setWave(false); }
+            else if (e.data === YT.PlayerState.ENDED) {
+              setWave(false);
+              const isEmo = document.getElementById("emo-overlay") && document.getElementById("emo-overlay").style.display === "flex";
+              if (isEmo) {
+                 emoNext();
+              } else {
+                 if (repeatOne) loadCurrent();
+                 else nextSong();
+              }
+            }
+          },
+          onError: (e) => {
+            console.error("YT Error:", e.data);
+            setWave(false);
+            if (songs[currentIndex]) songs[currentIndex].emb = false;
+            toast("⏭ Video restricted/unavailable. Skipping...", "error");
+            setTimeout(() => {
+              const isEmo = document.getElementById("emo-overlay") && document.getElementById("emo-overlay").style.display === "flex";
+              if (isEmo) emoNext(); else nextSong();
+            }, 1200);
+          }
+        }
+      });
+    };
+
+    function rebuildPlaylistUI() {
+      // Called after filtering to update DOM to match songs array
+      const div = document.getElementById("songs-list");
+      if (!div) return;
+      const existingItems = div.querySelectorAll(".song-item");
+      // If songs are fewer than DOM items (filtered), rebuild the list
+      if (songs.length !== existingItems.length) {
+        div.innerHTML = "";
+        songs.forEach((s, i) => {
+          const el = document.createElement("div");
+          el.className = "song-item" + (i === 0 ? " active" : "");
+          el.onclick = () => playByIndex(i);
+          el.innerHTML = '<p class="song-title">' + s.title + '</p><p class="song-meta">Song</p>';
+          div.appendChild(el);
+        });
+      }
+    }
+
+    function loadCurrent() {
+      if (!songs.length || !isReady) return;
+      // Find next embeddable song from currentIndex onwards
+      let idx = currentIndex;
+      while (idx < songs.length && !songs[idx].emb) idx++;
+      if (idx >= songs.length) {
+        // Try from beginning if repeatAll
+        if (repeatAll) { currentIndex = 0; loadCurrent(); return; }
+        showHint(true); return;
+      }
+      currentIndex = idx;
+      const { id } = songs[currentIndex];
+      setActive(currentIndex);
+      showHint(false);
+      player.loadVideoById(id);
+      player.playVideo();
+    }
+
+    function playByIndex(idx) {
+      currentIndex = idx;
+      if (shuffleOn) buildShuffleQueue();
+      loadCurrent();
+    }
+
+    // ── Playback controls ──────────────────────────────────────────────────────
+    function togglePlay() {
+      if (!songs.length || !isReady) return;
+      if (!songs[currentIndex].emb) { showHint(true); return; }
+      const s = player.getPlayerState();
+      if (s === YT.PlayerState.PLAYING) { player.pauseVideo(); setWave(false); }
+      else { player.playVideo(); setWave(true); }
+    }
+
+    function prevSong() {
+      if (!songs.length) return;
+      if (currentIndex === 0) {
+        if (repeatAll) currentIndex = songs.length - 1;
+        else return;
+      } else { currentIndex--; }
+      loadCurrent();
+    }
+
+    function nextSong() {
+      if (!songs.length) return;
+      if (shuffleOn) {
+        // Use pre-built queue so all songs play before repeating
+        if (shuffleQueue.length === 0 || shuffleQueuePos >= shuffleQueue.length) {
+          buildShuffleQueue();
+          if (shuffleQueue.length === 0) return;
+        }
+        currentIndex = shuffleQueue[shuffleQueuePos++];
+      } else {
+        // Auto-advance: always move to next, loop if at end
+        if (currentIndex >= songs.length - 1) {
+          if (repeatAll || songs.length > 1) {
+            currentIndex = 0; // Loop back to start
+          } else {
+            return; // Only 1 song and no repeat
+          }
+        } else {
+          currentIndex++;
+        }
+      }
+      loadCurrent();
+    }
+
+    function toggleShuffle() {
+      shuffleOn = !shuffleOn;
+      document.getElementById("shuffleBtn").classList.toggle("shuffle-on", shuffleOn);
+      if (shuffleOn) {
+        buildShuffleQueue();
+        toast("\uD83D\uDD00 Shuffle ON — random queue built", "success");
+      } else {
+        shuffleQueue = []; shuffleQueuePos = 0;
+        toast("Shuffle OFF", "success");
+      }
+    }
+
+    function toggleRepeatOne() {
+      repeatOne = !repeatOne;
+      document.getElementById("repeatOneBtn").classList.toggle("on", repeatOne);
+      if (repeatOne) { repeatAll = false; document.getElementById("repeatAllBtn").classList.remove("on"); }
+      toast(repeatOne ? "\uD83D\uDD02 Repeat One ON" : "Repeat One OFF");
+    }
+
+    function toggleRepeatAll() {
+      repeatAll = !repeatAll;
+      document.getElementById("repeatAllBtn").classList.toggle("on", repeatAll);
+      if (repeatAll) { repeatOne = false; document.getElementById("repeatOneBtn").classList.remove("on"); }
+      toast(repeatAll ? "\uD83D\uDD01 Repeat All ON" : "Repeat All OFF");
+    }
+
+    function openOnYouTube() {
+      if (!songs.length) return;
+      window.open("https://www.youtube.com/watch?v=" + songs[currentIndex].id, "_blank");
+    }
+
+    function resetPlayer() {
+      repeatOne = repeatAll = shuffleOn = false;
+      shuffleQueue = []; shuffleQueuePos = 0;
+      document.getElementById("repeatOneBtn").classList.remove("on");
+      document.getElementById("repeatAllBtn").classList.remove("on");
+      document.getElementById("shuffleBtn").classList.remove("shuffle-on");
+      currentIndex = 0;
+      if (isReady && songs.length) loadCurrent();
+      toast("\u21BA Player reset", "success");
+    }
+
+    // ── Refresh (single-fire, unique songs) ────────────────────────────────────
+    async function refreshSongs() {
+      if (isRefreshing) return;   // block double-click
+      isRefreshing = true;
+      const btn = document.getElementById("refreshBtn");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+
+      const city = document.getElementById("city").value.trim();
+      const lat = document.getElementById("lat").value;
+      const lon = document.getElementById("lon").value;
+
+      // Keep seenVideoIds accumulating — never reset it, so songs never repeat across refreshes
+      // But always exclude currently playing song's batch too
+      const excludeIds = [...seenVideoIds];
+
+      try {
+        let data;
+        if (!city && lat && lon) {
+          data = await doRefreshCoords(lat, lon);
+        } else {
+          const res = await fetch("/yt/api/refresh", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              city,
+              singer: document.getElementById("singer").value,
+              language: document.getElementById("language").value,
+              category: document.getElementById("category").value,
+              generation: document.getElementById("generation").value,
+              target: 40,
+              exclude_ids: excludeIds
+            })
+          });
+          data = await res.json();
+        }
+        if (data) applyData(data);
+      } catch (e) {
+        toast("Refresh failed: " + e.message, "error");
+      } finally {
+        isRefreshing = false;
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2zm-1 14.5v-9l6 4.5-6 4.5z" opacity=".3"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>';
+      }
+    }
+
+    async function doRefreshCoords(lat, lon) {
+      const excludeIds = [...seenVideoIds];
+      const res = await fetch("/yt/api/refresh_coords", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lat, lon,
+          singer: document.getElementById("singer").value,
+          language: document.getElementById("language").value,
+          category: document.getElementById("category").value,
+          generation: document.getElementById("generation").value,
+          target: 40,
+          exclude_ids: excludeIds
+        })
+      });
+      // Check server responded with JSON, not an HTML error page
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error("Server error " + res.status + (text ? ": " + text.slice(0, 80) : ""));
+      }
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) {
+        throw new Error("Server returned non-JSON response. Check if the Flask server is running.");
+      }
+      return res.json();
+    }
+
+    // ── Apply response data ────────────────────────────────────────────────────
+    function applyData(data) {
+      if (data.weather_info) {
+        const wc = document.getElementById("leftWeatherCard");
+        if (wc) wc.style.display = "block";
+        document.getElementById("lwCity").innerText =
+          data.weather_info.location || data.weather_info.city;
+        document.getElementById("lwType").innerText =
+          data.weather_info.weather + " \u2022 " + data.weather_info.suggested +
+          " mood \u2022 " + data.weather_info.season + " (" + data.weather_info.month + ")";
+        document.getElementById("lwTemp").innerText = data.weather_info.temp + "\u00b0C";
+
+        // Dynamic mood — update dropdown to match weather
+        const catSel = document.getElementById("category");
+        if (catSel && data.weather_info.suggested) {
+          const opt = [...catSel.options].find(o => o.value === data.weather_info.suggested);
+          if (opt) catSel.value = data.weather_info.suggested;
+        }
+        // Auto-fill city
+        if (!locationFilledOnce && !userEditedCity) {
+          const loc = data.weather_info.location || data.weather_info.city || "";
+          if (loc) { document.getElementById("city").value = loc; locationFilledOnce = true; }
+        }
+      }
+
+      const div = document.getElementById("songs-list");
+      div.innerHTML = "";
+      songs = [];
+      shuffleQueue = []; shuffleQueuePos = 0;
+
+      if (!data.songs || data.songs.length === 0) {
+        div.innerHTML = '<div style="padding:24px;text-align:center;color:var(--muted);font-size:.84rem;">No new songs found. Try different filters.</div>';
+        currentIndex = 0; return;
+      }
+
+      const freshSongs = data.songs.filter(s => !seenVideoIds.has(s.video_id));
+      const toUse = freshSongs.length > 0 ? freshSongs : data.songs;
+
+      toUse.forEach((s) => {
+        if (!s.embeddable) return;  // skip non-embeddable from playlist UI too
+        seenVideoIds.add(s.video_id);
+        const songIdx = songs.length; // capture current index before push
+        songs.push({ id: s.video_id, title: s.title, emb: true });
+        const el = document.createElement("div");
+        el.className = "song-item" + (songs.length === 1 ? " active" : "");
+        el.onclick = () => playByIndex(songIdx);
+        el.innerHTML =
+          '<p class="song-title">' + s.title + '</p>' +
+          '<p class="song-meta">' + (s.singer || '') + (s.category ? ' \u2022 ' + s.category : '') + '</p>';
+        div.appendChild(el);
+      });
+
+      currentIndex = 0;
+      if (isReady) loadCurrent();
+      toast("\u2728 " + toUse.length + " new songs loaded!", "success");
+    }
+
+    // ── Live Location button ───────────────────────────────────────────────────
+    async function useIpLocation() {
+      try {
+        const res = await fetch("/yt/api/ip_location");
+        const data = await res.json();
+        if (data.ok && data.lat && data.lon) {
+          document.getElementById("lat").value = data.lat;
+          document.getElementById("lon").value = data.lon;
+          if (data.city && !userEditedCity) {
+            document.getElementById("city").value = data.city;
+            locationFilledOnce = true;
+          }
+          return { lat: data.lat, lon: data.lon };
+        }
+      } catch (e) { }
+      return null;
+    }
+
+    function getGpsLocation() {
+      return new Promise((resolve) => {
+        if (!navigator.geolocation) { resolve(null); return; }
+        navigator.geolocation.getCurrentPosition(
+          pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+          () => resolve(null),
+          { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 }
+        );
+      });
+    }
+
+    async function useMyLocation() {
+      const btn = document.getElementById("locbtn-yt");
+      const oldText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '&#x1F4E1; Detecting location...';
+
+      // Race: GPS and IP at same time — fastest wins
+      const [gps, ip] = await Promise.all([getGpsLocation(), useIpLocation()]);
+      const coords = gps || ip;
+
+      if (coords) {
+        document.getElementById("lat").value = coords.lat;
+        document.getElementById("lon").value = coords.lon;
+        // Clear city so coords are used, not the old typed city
+        document.getElementById("city").value = "";
+        userEditedCity = false;
+        locationFilledOnce = false;
+        btn.innerHTML = '&#x2705; Location found!';
+        setTimeout(() => { btn.innerHTML = oldText; btn.disabled = false; }, 2000);
+        if (!isRefreshing) {
+          isRefreshing = true;
+          try {
+            const data = await doRefreshCoords(coords.lat, coords.lon);
+            applyData(data);
+            toast("\uD83C\uDFB5 Location loaded playlist!", "success");
+          } catch (e) {
+            toast("Location refresh error: " + e.message, "error");
+          } finally { isRefreshing = false; }
+        }
+      } else {
+        toast("Location detect nahi hua. City manually enter karo.", "error");
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+      }
+    }
+
+    // ── Form validation ───────────────────────────────────────────────────────
+    function validateForm(e) {
+      const city = document.getElementById("city").value.trim();
+      const lat = document.getElementById("lat").value;
+      const lon = document.getElementById("lon").value;
+      if (!city && !lat && !lon) {
+        e.preventDefault();
+        toast("Please enter a city name first!", "error");
+        document.getElementById("city").focus();
+        return false;
+      }
+      return true;
+    }
+
+
+    // ── SINGERS BY LANGUAGE (YouTube app) ──────────────────────────────────────
+    const SINGERS_BY_LANG_YT = {
+      'Hindi': ['Arijit Singh', 'Shreya Ghoshal', 'Atif Aslam', 'KK', 'Sonu Nigam', 'Armaan Malik', 'Neha Kakkar', 'Jubin Nautiyal', 'Badshah', 'Kishore Kumar'],
+      'English': ['Taylor Swift', 'Ed Sheeran', 'The Weeknd', 'Coldplay', 'Dua Lipa', 'Bruno Mars', 'Billie Eilish', 'Justin Bieber', 'Ariana Grande', 'Adele'],
+      'Tamil': ['SPB', 'Sid Sriram', 'Yuvan Shankar Raja', 'Anirudh Ravichander', 'Ilaiyaraaja', 'Hariharan', 'Chinmayi', 'Shreya Ghoshal'],
+      'Telugu': ['SP Balasubrahmanyam', 'Sid Sriram', 'Armaan Malik', 'Chinmayi', 'Karthik', 'Anurag Kulkarni', 'Sunitha Upadrashta'],
+      'Marathi': ['Ajay-Atul', 'Vaibhav Joshi', 'Bela Shende', 'Anand Shinde', 'Swaroop Khan', 'Adarsh Shinde', 'Swapnil Bandodkar'],
+      'Punjabi': ['Diljit Dosanjh', 'AP Dhillon', 'Sidhu Moosewala', 'B Praak', 'Guru Randhawa', 'Harrdy Sandhu', 'Shubh', 'Ammy Virk', 'Karan Aujla'],
+      'Bengali': ['Arijit Singh', 'Nachiketa Chakraborty', 'Anupam Roy', 'Usha Uthup', 'Rupankar Bagchi', 'Shreya Ghoshal', 'Kumar Sanu'],
+      'Bhojpuri': ['Pawan Singh', 'Khesari Lal Yadav', 'Ritesh Pandey', 'Neelkamal Singh', 'Pramod Premi', 'Dinesh Lal Yadav'],
+      'Odia': ['Humane Sagar', 'Ira Mohanty', 'Sourin Bhatt', 'Tapu Mishra', 'Ashok Pati', 'Nibedita'],
+    };
+    function updateSingersYt() {
+      const lang = document.getElementById('language').value;
+      const sel = document.getElementById('singer');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Any Artist</option>';
+      (SINGERS_BY_LANG_YT[lang] || SINGERS_BY_LANG_YT['Hindi']).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s; o.textContent = s;
+        if (s === prev) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    // ── Load YouTube IFrame API ────────────────────────────────────────────────
+    const ytTag = document.createElement("script");
+    ytTag.src = "https://www.youtube.com/iframe_api";
+    document.body.appendChild(ytTag);
+
+    window.addEventListener("load", () => {
+      // Hide loading overlay once page is ready
+      const ov = document.getElementById("loading-overlay");
+      if (ov) ov.style.display = "none";
+
+      // Populate singer dropdown based on current language
+      updateSingersYt();
+
+      document.getElementById("city").addEventListener("input", () => {
+        if (document.getElementById("city").value.trim().length > 0) userEditedCity = true;
+      });
+
+      // Close search history on outside click
+      document.addEventListener("click", (e) => {
+        const wrap = document.getElementById("topbar-search");
+        if (wrap && !wrap.contains(e.target)) {
+          document.getElementById("yt-search-history").classList.remove("open");
+        }
+      });
+    });
+
+    // ── YT Search Bar ────────────────────────────────────────────────────────────
+    const YT_SEARCH_HISTORY_KEY = "yt_search_history";
+
+    function getYtHistory() {
+      try { return JSON.parse(localStorage.getItem(YT_SEARCH_HISTORY_KEY) || "[]"); } catch (e) { return []; }
+    }
+    function saveYtHistory(arr) {
+      localStorage.setItem(YT_SEARCH_HISTORY_KEY, JSON.stringify(arr));
+    }
+    function addYtHistory(q) {
+      let h = getYtHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
+      h.unshift(q);
+      if (h.length > 5) h = h.slice(0, 5);
+      saveYtHistory(h);
+    }
+    function removeYtHistoryItem(q) {
+      saveYtHistory(getYtHistory().filter(x => x !== q));
+      renderYtHistory();
+    }
+    function clearYtHistory(e) {
+      e && e.stopPropagation();
+      saveYtHistory([]);
+      renderYtHistory();
+    }
+    function renderYtHistory() {
+      const hist = getYtHistory();
+      const list = document.getElementById("ysh-list");
+      const box = document.getElementById("yt-search-history");
+      list.innerHTML = "";
+      if (!hist.length) { box.classList.remove("open"); return; }
+      hist.forEach(q => {
+        const el = document.createElement("div");
+        el.className = "ysh-item";
+        el.innerHTML = `<span style="color:var(--muted);font-size:.8rem;">🕙</span><span class="ysh-item-text">${q}</span><button class="ysh-item-del" onclick="event.stopPropagation();removeYtHistoryItem('${q.replace(/'/g, "\\'")}')" title="Remove">✕</button>`;
+        el.addEventListener("click", () => {
+          document.getElementById("yt-search-input").value = q;
+          box.classList.remove("open");
+          doYtSearch();
+        });
+        list.appendChild(el);
+      });
+      box.classList.add("open");
+    }
+    function showYtHistory() {
+      const q = document.getElementById("yt-search-input").value.trim();
+      if (!q) { renderYtHistory(); return; }
+      document.getElementById("yt-search-history").classList.remove("open");
+    }
+
+    function doYtSearch() {
+      const q = document.getElementById("yt-search-input").value.trim();
+      if (!q) { toast("Song ka naam type karo 🎵", "error"); return; }
+
+      // Search in current playlist
+      const lower = q.toLowerCase();
+      const idx = songs.findIndex(s => s.title.toLowerCase().includes(lower));
+      if (idx !== -1) {
+        addYtHistory(q);
+        playByIndex(idx);
+        toast("🎵 Playing: " + songs[idx].title.slice(0, 40), "success");
+        document.getElementById("yt-search-history").classList.remove("open");
+        return;
+      }
+
+      // Not in playlist — search YouTube directly using API
+      addYtHistory(q);
+      document.getElementById("yt-search-history").classList.remove("open");
+      const btn = document.getElementById("yt-search-btn");
+      btn.disabled = true; btn.textContent = "Searching...";
+
+      fetch("/yt/api/search_yt?q=" + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(data => {
+          if (data.video_id) {
+            // Insert at top of playlist and play
+            const newSong = { id: data.video_id, title: data.title || q, emb: true };
+            songs.unshift(newSong);
+            // Add to songs-list UI
+            const div = document.getElementById("songs-list");
+            const el = document.createElement("div");
+            el.className = "song-item";
+            el.onclick = () => playByIndex(songs.indexOf(newSong));
+            el.innerHTML = '<p class="song-title">' + (data.title || q) + '</p><p class="song-meta">Search result</p>';
+            div.insertBefore(el, div.firstChild);
+            currentIndex = 0;
+            loadCurrent();
+            toast("🔍 Found: " + (data.title || q).slice(0, 40), "success");
+          } else {
+            toast("Song nahi mili. Playlist mein try karo.", "error");
+          }
+        })
+        .catch(() => toast("Search failed. Playlist mein try karo.", "error"))
+        .finally(() => { btn.disabled = false; btn.textContent = "Search"; });
+    }
+
+    // ── Emotion Mode ────────────────────────────────────────────────────────────
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <script>
+    // ── Emotion cam state ──
+    let emoStream = null;
+    let emoDetectInterval;
+    let modelsLoaded = false;
+    let lastDetectedEmotion = "";
+    let emotionPersistCount = 0;
+
+    // ── Emotion mini-player state ──
+    let emoCurIdx = 0;
+    let emoIsPlaying = false;
+    let emoShuffleOn = false;
+    let emoRepeatOn = false;
+    let emoShuffleQueue = [];
+    let emoShufflePos = 0;
+    let emoConfBuffer = []; // rolling confidence buffer for accuracy
+
+    const emojiMap = {
+      happy:"😄", sad:"😢", angry:"😠", fearful:"😨",
+      disgusted:"🤢", surprised:"😲", neutral:"😐",
+      excited:"🤩", calm:"😌", romantic:"🥰", energetic:"⚡",
+      tired:"😴", bored:"😑", lonely:"🥺", stressed:"😰",
+      motivated:"💪", nostalgic:"🌅", devotional:"🙏"
+    };
+
+    function openEmotionMode() {
+      document.getElementById("emo-overlay").style.display = "flex";
+      startEmotionCam();
+    }
+
+    function closeEmotionMode() {
+      stopEmotionCam();
+      document.getElementById("emo-overlay").style.display = "none";
+    }
+
+    async function startEmotionCam() {
+      if (emoStream) stopEmotionCam();
+      if (!modelsLoaded) {
+        const p = document.getElementById("emo-placeholder");
+        p.innerHTML = "⏳ Downloading AI models (~3MB)...";
+        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+        await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+        modelsLoaded = true;
+      }
+      const video = document.getElementById("emo-video");
+      try {
+        emoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = emoStream;
+        document.getElementById("emo-placeholder").style.display = "none";
+        video.style.display = "block";
+        video.onloadedmetadata = () => { video.play(); startDetecting(); };
+      } catch (err) {
+        document.getElementById("emo-placeholder").innerHTML = "❌ Camera permission denied.";
+      }
+    }
+
+    function stopEmotionCam() {
+      if (emoDetectInterval) clearInterval(emoDetectInterval);
+      if (emoStream) { emoStream.getTracks().forEach(t => t.stop()); emoStream = null; }
+      document.getElementById("emo-video").style.display = "none";
+      document.getElementById("emo-placeholder").style.display = "block";
+      document.getElementById("emo-placeholder").innerHTML = "📷<br><br>Enable camera to start";
+      const canvas = document.getElementById("emo-canvas");
+      if (canvas) canvas.remove();
+      document.getElementById("emo-face-count").style.display = "none";
+      document.getElementById("emo-faces-list").innerHTML = "";
+    }
+
+
+    async function startDetecting() {
+      const video   = document.getElementById("emo-video");
+      const camView = document.querySelector(".emo-cam-view");
+      const oldCanvas = document.getElementById("emo-canvas");
+      if (oldCanvas) oldCanvas.remove();
+
+      // Wait until video has actual dimensions
+      await new Promise(resolve => {
+        if (video.videoWidth > 0) { resolve(); return; }
+        video.addEventListener("loadeddata", resolve, { once: true });
+        setTimeout(resolve, 1000); // fallback
+      });
+
+      // Standard faceapi approach: use native video resolution for canvas pixel dims
+      // CSS stretches it to fit the view — resizeResults handles the coordinate scaling
+      const displaySize = { width: video.videoWidth || 640, height: video.videoHeight || 480 };
+
+      const canvas = document.createElement("canvas");
+      canvas.id = "emo-canvas";
+      canvas.width  = displaySize.width;
+      canvas.height = displaySize.height;
+      Object.assign(canvas.style, {
+        position:"absolute", top:"0", left:"0",
+        width:"100%", height:"100%",
+        pointerEvents:"none", zIndex:"10"
+      });
+      camView.appendChild(canvas);
+      faceapi.matchDimensions(canvas, displaySize);
+
+      emotionPersistCount = 0;
+      lastDetectedEmotion = "";
+      emoConfBuffer = [];
+
+      const faceColors = ["#ff4ecd", "#3cf0ff", "#f9ca24", "#a855f7", "#00e5aa"];
+
+      emoDetectInterval = setInterval(async () => {
+        if (!video || video.paused || video.ended) return;
+
+        // scoreThreshold: 0.4 = more strict for better accuracy
+        // inputSize: 512 = higher accuracy
+        const allDetections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
+          .withFaceExpressions();
+
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!allDetections || allDetections.length === 0) {
+          document.getElementById("emo-display-emoji").innerText = "👁️";
+          document.getElementById("emo-display-text").innerText  = "No face detected";
+          document.getElementById("emo-display-desc").innerText  = "Position your face in the camera";
+          document.getElementById("emo-face-count").style.display = "none";
+          document.getElementById("emo-faces-list").innerHTML = "";
+          emoConfBuffer = []; // reset on no-face
+          return;
+        }
+
+        const resized = faceapi.resizeResults(allDetections, displaySize);
+
+        // ── Draw colored boxes per face ──
+        resized.forEach((det, fi) => {
+          const { x, y, width, height } = det.detection.box;
+          const color  = faceColors[fi % faceColors.length];
+          const topEmo = Object.keys(det.expressions).reduce((a,b) => det.expressions[a] > det.expressions[b] ? a : b);
+          const conf   = Math.round(det.expressions[topEmo] * 100);
+          const L      = Math.max(12, Math.min(24, width * 0.18));
+
+          // Glow
+          ctx.shadowColor = color;
+          ctx.shadowBlur  = 18;
+          ctx.strokeStyle = color;
+          ctx.lineWidth   = 3;
+          ctx.lineCap     = "round";
+
+          // Corner brackets
+          ctx.beginPath();
+          ctx.moveTo(x + L, y);       ctx.lineTo(x, y);          ctx.lineTo(x, y + L);
+          ctx.moveTo(x + width - L, y); ctx.lineTo(x + width, y);  ctx.lineTo(x + width, y + L);
+          ctx.moveTo(x, y + height - L); ctx.lineTo(x, y + height); ctx.lineTo(x + L, y + height);
+          ctx.moveTo(x + width - L, y + height); ctx.lineTo(x + width, y + height); ctx.lineTo(x + width, y + height - L);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+
+          // Emotion badge (pill)
+          ctx.font = "bold 12px Inter, sans-serif";
+          const emoji = emojiMap[topEmo] || "😐";
+          const txt   = `${emoji} Face ${fi+1} · ${topEmo} ${conf}%`;
+          const bW    = ctx.measureText(txt).width + 16;
+          const bH    = 22;
+          const bX    = Math.max(0, Math.min(x, canvas.width - bW));
+          const bY    = y > bH + 6 ? y - bH - 4 : y + height + 4;
+
+          // Pill shape (manual, no roundRect for compat)
+          const r = 5;
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(bX + r, bY);
+          ctx.lineTo(bX + bW - r, bY);
+          ctx.arc(bX + bW - r, bY + r, r, -Math.PI/2, 0);
+          ctx.lineTo(bX + bW, bY + bH - r);
+          ctx.arc(bX + bW - r, bY + bH - r, r, 0, Math.PI/2);
+          ctx.lineTo(bX + r, bY + bH);
+          ctx.arc(bX + r, bY + bH - r, r, Math.PI/2, Math.PI);
+          ctx.lineTo(bX, bY + r);
+          ctx.arc(bX + r, bY + r, r, Math.PI, -Math.PI/2);
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.fillStyle = "#07070f";
+          ctx.fillText(txt, bX + 8, bY + 15);
+        });
+
+        // ── Aggregate all faces → dominant emotion ──
+        const aggr = {};
+        allDetections.forEach(det => {
+          Object.entries(det.expressions).forEach(([emo, val]) => {
+            aggr[emo] = (aggr[emo] || 0) + val;
+          });
+        });
+        // (topEmotion computed via sortedEmos below)
+
+        // Update face-count badge
+        const faceCountEl = document.getElementById("emo-face-count");
+        faceCountEl.textContent = allDetections.length + (allDetections.length === 1 ? " face" : " faces");
+        faceCountEl.style.display = "inline-flex";
+
+        // Per-face sidebar list
+        document.getElementById("emo-faces-list").innerHTML = allDetections.map((det, fi) => {
+          const top  = Object.keys(det.expressions).reduce((a,b) => det.expressions[a] > det.expressions[b] ? a : b);
+          const conf = Math.round(det.expressions[top] * 100);
+          const color = faceColors[fi % faceColors.length];
+          return `<div class="emo-face-row">
+            <span class="emo-face-emoji">${emojiMap[top] || "😐"}</span>
+            <div class="emo-face-info">
+              <div class="emo-face-label" style="color:${color}">Face ${fi+1}: ${top.toUpperCase()}</div>
+              <div class="emo-face-conf">${conf}% confidence</div>
+              <div class="emo-face-bar" style="width:${conf}%"></div>
+            </div>
+          </div>`;
+        }).join("");
+
+        // Dominant and Secondary emotion support
+        const sortedEmos = Object.keys(aggr).sort((a,b) => aggr[b] - aggr[a]);
+        const topEmotion = sortedEmos[0];
+        const secEmotion = sortedEmos[1];
+        const topConf = Math.round((aggr[topEmotion] / allDetections.length) * 100);
+        const secConf = Math.round((aggr[secEmotion] / allDetections.length) * 100);
+        
+        let currentDetected = topEmotion;
+        let displayLabel = topEmotion.toUpperCase() + " — " + topConf + "%";
+        
+        if (secConf >= 25) {
+           currentDetected = topEmotion + "," + secEmotion;
+           displayLabel = topEmotion.toUpperCase() + " (" + topConf + "%) & " + secEmotion.toUpperCase() + " (" + secConf + "%)";
+        }
+
+        // ── LOCK display on first frame only — no more flickering ──
+        if (emoConfBuffer.length === 0) {
+          document.getElementById("emo-display-emoji").innerText = emojiMap[topEmotion] || "😐";
+          document.getElementById("emo-display-text").innerText  = displayLabel;
+          document.getElementById("emo-display-desc").innerText  = "Confirming ●○...";
+        }
+
+        // ── Add to buffer (max 3 frames for better accuracy) ──
+        emoConfBuffer.push({ emotion: currentDetected, primary: topEmotion, conf: topConf, label: displayLabel });
+        if (emoConfBuffer.length > 3) emoConfBuffer.shift();
+
+        // ── Trigger on 3rd frame ──
+        if (emoConfBuffer.length >= 3) {
+          const bufAvg = {};
+          emoConfBuffer.forEach(f => { bufAvg[f.emotion] = (bufAvg[f.emotion] || 0) + f.conf; });
+          const dominantStr = Object.keys(bufAvg).reduce((a,b) => bufAvg[a] > bufAvg[b] ? a : b);
+          
+          // Find the best frame that matched the dominant string
+          const bestFrame = emoConfBuffer.find(f => f.emotion === dominantStr) || emoConfBuffer[emoConfBuffer.length - 1];
+          
+          if (bestFrame.conf >= 35) {
+            document.getElementById("emo-display-emoji").innerText = emojiMap[bestFrame.primary] || "😐";
+            document.getElementById("emo-display-text").innerText  = bestFrame.label;
+            document.getElementById("emo-display-desc").innerText  = "🎵 Generating playlist...";
+            clearInterval(emoDetectInterval);
+            // keep camera open so mood stays on screen
+            triggerEmotionPlaylist(bestFrame.primary);
+          }
+        }
+      }, 300);
+    }
+
+
+
+    // ── Fetch emotion-based playlist then load into mini-player ──
+    async function triggerEmotionPlaylist(emotion) {
+      try {
+        // Show loading state
+        document.getElementById("emo-display-desc").innerText = "🎵 Generating playlist...";
+        document.getElementById("emo-plist-empty") && (document.getElementById("emo-plist-empty").textContent = "⏳ Loading songs...");
+
+        // Step 1: Get mood mapping + fetch songs in ONE dedicated call (no city needed)
+        const res = await fetch("/yt/api/emotion_playlist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            emotion,
+            singer: document.getElementById("singer").value,
+            language: document.getElementById("language").value,
+            generation: document.getElementById("generation").value,
+            target: 10
+          })
+        });
+        const data = await res.json();
+
+        // Update emotion display
+        document.getElementById("emo-display-emoji").innerText = data.emoji || emojiMap[emotion] || "😐";
+        document.getElementById("emo-display-text").innerText = "Mood: " + data.mood;
+        document.getElementById("emo-display-desc").innerText = data.vibe || "🎵 Loading songs...";
+
+        // Sync category dropdown in main form
+        const catSel = document.getElementById("category");
+        if (catSel) {
+          const opt = Array.from(catSel.options).find(o => o.value === data.mood);
+          if (opt) catSel.value = data.mood;
+        }
+
+        const emotionSongs = data.songs || [];
+
+        if (emotionSongs.length > 0) {
+          // Load into BOTH the emotion mini-player AND the main playlist
+          songs = emotionSongs.map(s => ({ id: s.video_id, title: s.title, emb: true }));
+          currentIndex = 0;
+
+          // Also update main songs-list UI
+          const div = document.getElementById("songs-list");
+          div.innerHTML = "";
+          songs.forEach((s, idx) => {
+            seenVideoIds.add(s.id);
+            const el = document.createElement("div");
+            el.className = "song-item" + (idx === 0 ? " active" : "");
+            el.onclick = () => playByIndex(idx);
+            el.innerHTML = '<p class="song-title">' + s.title + '</p><p class="song-meta">' + (data.mood || '') + '</p>';
+            div.appendChild(el);
+          });
+
+          emoLoadPlaylist(songs, data.mood, data.emoji);
+          document.getElementById("emo-display-desc").innerText = `✅ ${songs.length} songs loaded! ${data.vibe || ''}`;
+        } else {
+          const emptyEl = document.getElementById("emo-plist-empty");
+          if (emptyEl) emptyEl.textContent = data.error
+            ? "⚠️ " + data.error
+            : "😕 No songs found for this mood. Try different language/artist filters.";
+          document.getElementById("emo-display-desc").innerText = "No songs found. Try different filters.";
+        }
+
+        // ✅ Detection is FINAL — do NOT restart after playlist loads
+        // User must manually close and reopen if they want a new playlist
+
+      } catch (e) {
+        document.getElementById("emo-display-desc").innerText = "❌ Error loading playlist.";
+        console.error("triggerEmotionPlaylist error:", e);
+        // Show error but don't auto-restart — user can retry by closing/reopening
+      }
+    }
+
+
+    // ── Separate emotion playlist array (independent of main player) ──
+    let emoSongs = [];  // emotion playlist
+
+    function emoLoadPlaylist(songsList, mood, emoji) {
+      emoCurIdx = 0;
+      emoIsPlaying = false;
+      emoShuffleOn = false;
+      emoRepeatOn = false;
+      emoShuffleQueue = [];
+      emoShufflePos = 0;
+      emoSongs = songsList.slice(); // copy
+
+      const shuffleBtn = document.getElementById("emo-shuffle-btn");
+      const repeatBtn  = document.getElementById("emo-repeat-btn");
+      if (shuffleBtn) shuffleBtn.classList.remove("active");
+      if (repeatBtn)  repeatBtn.classList.remove("active");
+
+      const listEl  = document.getElementById("emo-song-list");
+      const emptyEl = document.getElementById("emo-plist-empty");
+      if (emptyEl) emptyEl.remove();
+      listEl.innerHTML = "";
+
+      emoSongs.forEach((s, i) => {
+        const el = document.createElement("div");
+        el.className = "emo-song" + (i === 0 ? " active-song" : "");
+        el.dataset.idx = i;
+        el.innerHTML = `
+          <span class="emo-song-num">${i+1}</span>
+          <span class="emo-song-play">▶</span>
+          <span class="emo-song-title">${s.title || s.name || "Unknown"}</span>`;
+        el.onclick = () => emoPlayByIdx(i);
+        listEl.appendChild(el);
+      });
+
+      emoUpdateNowPlaying();
+      emoPlayByIdx(0);
+    }
+
+    function emoUpdateNowPlaying() {
+      if (!emoSongs.length) return;
+      const s = emoSongs[emoCurIdx];
+      // New Spotify-style emp-* elements
+      const tname   = document.getElementById("emp-tname");
+      const tartist = document.getElementById("emp-tartist");
+      if (tname)   tname.textContent   = (s.title || s.name || "Unknown").substring(0, 52);
+      if (tartist) tartist.textContent = "Song " + (emoCurIdx + 1) + " of " + emoSongs.length;
+      // Highlight active in list
+      document.querySelectorAll("#emo-song-list .emo-song").forEach((el, i) => {
+        el.classList.toggle("active-song", i === emoCurIdx);
+        if (i === emoCurIdx) el.scrollIntoView({ block: "nearest" });
+      });
+    }
+
+    // Progress timer for the emotion player bar
+    let _empProgTimer = null;
+    function _startEmpProg() {
+      if (_empProgTimer) clearInterval(_empProgTimer);
+      _empProgTimer = setInterval(() => {
+        if (!player || !isReady) return;
+        try {
+          const cur = player.getCurrentTime() || 0;
+          const dur = player.getDuration()    || 0;
+          const pct = dur > 0 ? (cur / dur * 100) : 0;
+          document.getElementById("emp-prog-fill").style.width = pct + "%";
+          document.getElementById("emp-ctime").textContent = _fmtTime(cur);
+          document.getElementById("emp-ttime").textContent = _fmtTime(dur);
+        } catch(e){}
+      }, 800);
+    }
+    function _fmtTime(s) {
+      s = Math.floor(s || 0);
+      return Math.floor(s/60) + ":" + String(s%60).padStart(2,"0");
+    }
+    function empSeekYt(evt) {
+      if (!player || !isReady) return;
+      const bar = evt.currentTarget;
+      const pct = evt.offsetX / bar.offsetWidth;
+      try { player.seekTo(player.getDuration() * pct, true); } catch(e){}
+    }
+    function empVolYt(v) {
+      if (player && isReady) { try { player.setVolume(parseInt(v)); } catch(e){} }
+    }
+
+    function emoPlayByIdx(idx) {
+      if (!emoSongs.length) return;
+      emoCurIdx = Math.max(0, Math.min(idx, emoSongs.length - 1));
+      const s = emoSongs[emoCurIdx];
+      // Set vinyl art thumbnail from YouTube
+      const art = document.getElementById("emp-art");
+      if (art) art.src = `https://img.youtube.com/vi/${s.id}/mqdefault.jpg`;
+      // Start spinning animation
+      const wrap = document.getElementById("emp-art-wrap");
+      if (wrap) wrap.classList.add("emp-playing");
+      // Play via main player
+      const mainIdx = songs.findIndex(ms => ms.id === s.id);
+      if (mainIdx !== -1) {
+        playByIndex(mainIdx);
+      } else {
+        if (player && isReady) { try { player.loadVideoById(s.id); player.playVideo(); } catch(e){} }
+      }
+      emoIsPlaying = true;
+      const playBtn = document.getElementById("emp-play-btn");
+      if (playBtn) playBtn.textContent = "⏸";
+      emoUpdateNowPlaying();
+      _startEmpProg();
+    }
+
+    function emoTogglePlay() {
+      if (!emoSongs.length) { toast("Pehle emotion detect karo 🎭", "error"); return; }
+      if (emoIsPlaying) {
+        if (player && isReady) { try { player.pauseVideo(); } catch(e){} }
+        emoIsPlaying = false;
+        const playBtn = document.getElementById("emp-play-btn");
+        if (playBtn) playBtn.textContent = "▶";
+        const wrap = document.getElementById("emp-art-wrap");
+        if (wrap) wrap.classList.remove("emp-playing");
+        setWave(false);
+      } else {
+        if (player && isReady) { try { player.playVideo(); } catch(e){} }
+        emoIsPlaying = true;
+        const playBtn = document.getElementById("emp-play-btn");
+        if (playBtn) playBtn.textContent = "⏸";
+        const wrap = document.getElementById("emp-art-wrap");
+        if (wrap) wrap.classList.add("emp-playing");
+        setWave(true);
+      }
+    }
+
+    function emoPrev() {
+      if (!emoSongs.length) return;
+      if (emoCurIdx > 0) {
+        emoCurIdx--;
+      } else {
+        emoCurIdx = emoRepeatOn ? emoSongs.length - 1 : 0;
+      }
+      emoPlayByIdx(emoCurIdx);
+    }
+
+    function emoNext() {
+      if (!emoSongs.length) return;
+      if (emoShuffleOn) {
+        if (emoShuffleQueue.length === 0 || emoShufflePos >= emoShuffleQueue.length) {
+          emoShuffleQueue = emoSongs.map((_,i)=>i).filter(i=>i!==emoCurIdx).sort(()=>Math.random()-.5);
+          emoShufflePos = 0;
+        }
+        emoCurIdx = emoShuffleQueue[emoShufflePos++];
+      } else {
+        if (emoCurIdx < emoSongs.length - 1) {
+          emoCurIdx++;
+        } else {
+          emoCurIdx = emoRepeatOn ? 0 : emoCurIdx; // loop if repeat on
+        }
+      }
+      emoPlayByIdx(emoCurIdx);
+    }
+
+    function emoToggleShuffle() {
+      emoShuffleOn = !emoShuffleOn;
+      const btn = document.getElementById("emo-shuffle-btn");
+      if (btn) btn.classList.toggle("active", emoShuffleOn);
+      if (emoShuffleOn) {
+        emoShuffleQueue = emoSongs.map((_,i)=>i).filter(i=>i!==emoCurIdx).sort(()=>Math.random()-.5);
+        emoShufflePos = 0;
+        toast("🔀 Shuffle ON — random order active", "success");
+      } else {
+        emoShuffleQueue = [];
+        emoShufflePos   = 0;
+        toast("Shuffle OFF", "success");
+      }
+    }
+
+    function emoToggleRepeat() {
+      emoRepeatOn = !emoRepeatOn;
+      const btn = document.getElementById("emo-repeat-btn");
+      if (btn) btn.classList.toggle("active", emoRepeatOn);
+      toast(emoRepeatOn ? "🔁 Repeat ON" : "Repeat OFF", "success");
+
+      // Sync main player repeat state safely
+      try {
+        repeatAll = emoRepeatOn;
+        const mainRepeatBtn = document.getElementById("repeatAllBtn");
+        if (mainRepeatBtn) mainRepeatBtn.classList.toggle("on", emoRepeatOn);
+      } catch(e) { /* main player might not be ready */ }
+    }
+  </script>
+</body>
+
+</html>

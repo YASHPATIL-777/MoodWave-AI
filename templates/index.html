@@ -1,0 +1,3007 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Moodwave Music Player</title>
+  <meta name="description"
+    content="AI-powered music player that recommends songs based on your local weather, season, and mood — Moodwave Music.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+  {% raw %}
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0
+    }
+
+    :root {
+      --bg: #08080f;
+      --surface: rgba(255, 255, 255, 0.05);
+      --surface2: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #1db954;
+      --accent2: #7c3aed;
+      --accent3: #f59e0b;
+      --text: #e8e8f0;
+      --text2: #8888aa;
+      --glass: rgba(12, 12, 24, 0.75);
+      --radius: 16px;
+      --tr: 0.3s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    html {
+      scroll-behavior: smooth
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px
+    }
+
+    /* BG */
+    .mesh-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: radial-gradient(ellipse at 15% 50%, rgba(124, 58, 237, .18) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 20%, rgba(29, 185, 84, .12) 0%, transparent 55%),
+        radial-gradient(ellipse at 55% 85%, rgba(245, 158, 11, .09) 0%, transparent 55%),
+        linear-gradient(135deg, #08080f 0%, #0f0820 50%, #080f08 100%);
+      animation: meshPan 18s ease-in-out infinite alternate;
+      pointer-events: none
+    }
+
+    @keyframes meshPan {
+      0% {
+        filter: hue-rotate(0deg)
+      }
+
+      100% {
+        filter: hue-rotate(15deg)
+      }
+    }
+
+    #pcanvas {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none
+    }
+
+    /* GLASS */
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius)
+    }
+
+    /* HEADER */
+    #hdr {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8, 8, 15, .85);
+      backdrop-filter: blur(24px)
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 1.2rem;
+      font-weight: 800;
+      letter-spacing: -.3px
+    }
+
+    .logo-ico {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      box-shadow: 0 0 22px rgba(29, 185, 84, .45)
+    }
+
+    .logo span {
+      color: var(--accent)
+    }
+
+    #ua {
+      display: flex;
+      align-items: center;
+      gap: 10px
+    }
+
+    #sp-login {
+      background: linear-gradient(135deg, var(--accent), #18a845);
+      color: #000;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: .82rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif
+    }
+
+    #sp-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(29, 185, 84, .4)
+    }
+
+    #ubadge {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 5px 12px 5px 7px;
+      border-radius: 24px
+    }
+
+    #ubadge img {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--surface2)
+    }
+
+    .uname {
+      font-size: .82rem;
+      font-weight: 600
+    }
+
+    .utag {
+      font-size: .68rem;
+      color: var(--accent);
+      font-weight: 700
+    }
+
+    .logoutbtn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 4px 9px;
+      border-radius: 7px;
+      font-size: .72rem;
+      cursor: pointer;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif
+    }
+
+    .logoutbtn:hover {
+      border-color: #e74c3c;
+      color: #e74c3c
+    }
+
+    /* LAYOUT */
+    #main {
+      position: relative;
+      z-index: 5;
+      display: grid;
+      grid-template-columns: 290px 1fr 310px;
+      gap: 18px;
+      padding: 18px 22px;
+      min-height: calc(100vh - 65px);
+      max-width: 1580px;
+      margin: 0 auto
+    }
+
+    /* LEFT */
+    #lp {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    #wcard {
+      padding: 18px
+    }
+
+    .sbar {
+      display: flex;
+      gap: 7px;
+      margin-bottom: 12px
+    }
+
+    .sbar input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 13px;
+      border-radius: 10px;
+      font-size: .83rem;
+      outline: none;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif
+    }
+
+    .sbar input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(29, 185, 84, .12)
+    }
+
+    .sbar input::placeholder {
+      color: var(--text2)
+    }
+
+    .btn-go {
+      background: linear-gradient(135deg, var(--accent), #18a845);
+      color: #000;
+      border: none;
+      padding: 9px 15px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: .82rem;
+      cursor: pointer;
+      transition: var(--tr);
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif
+    }
+
+    .btn-go:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 18px rgba(29, 185, 84, .35)
+    }
+
+    #locbtn {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      padding: 8px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: .8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: var(--tr);
+      margin-bottom: 14px;
+      font-family: 'Inter', sans-serif
+    }
+
+    #locbtn:hover {
+      border-color: var(--accent2);
+      color: var(--accent2)
+    }
+
+    /* Skeleton */
+    .skel {
+      background: linear-gradient(90deg, var(--surface) 25%, var(--surface2) 50%, var(--surface) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 8px
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: 200% 0
+      }
+
+      100% {
+        background-position: -200% 0
+      }
+    }
+
+    .sl {
+      height: 12px;
+      margin-bottom: 9px;
+      border-radius: 5px
+    }
+
+    .sl.s {
+      width: 55%
+    }
+
+    .sl.m {
+      width: 78%
+    }
+
+    .sb {
+      height: 66px;
+      border-radius: 10px;
+      margin-bottom: 9px
+    }
+
+    /* Weather info */
+    #winfo {
+      display: none;
+      animation: fadeUp .45s ease
+    }
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .wtop {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px
+    }
+
+    .wcity {
+      font-size: 1.15rem;
+      font-weight: 800
+    }
+
+    .wco {
+      font-size: .72rem;
+      color: var(--text2)
+    }
+
+    .wico img {
+      width: 58px;
+      height: 58px;
+      filter: drop-shadow(0 0 10px rgba(255, 255, 255, .28))
+    }
+
+    .wmeta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+      margin-bottom: 10px
+    }
+
+    .mi {
+      background: var(--surface2);
+      border-radius: 10px;
+      padding: 9px;
+      text-align: center
+    }
+
+    .ml {
+      font-size: .65rem;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 2px
+    }
+
+    .mv {
+      font-size: 1.05rem;
+      font-weight: 700
+    }
+
+    .mv.temp {
+      color: var(--accent3)
+    }
+
+    .mv.hum {
+      color: #60a5fa
+    }
+
+    .mv.ssn {
+      color: var(--accent2);
+      font-size: .88rem
+    }
+
+    .mv.mth {
+      color: var(--accent);
+      font-size: .88rem
+    }
+
+    .vibe {
+      background: linear-gradient(135deg, rgba(124, 58, 237, .18), rgba(29, 185, 84, .18));
+      border: 1px solid rgba(124, 58, 237, .28);
+      border-radius: 10px;
+      padding: 9px 11px;
+      font-size: .8rem;
+      font-style: italic;
+      color: var(--text2);
+      margin-bottom: 10px
+    }
+
+    .mbadge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(29, 185, 84, .12);
+      border: 1px solid rgba(29, 185, 84, .28);
+      color: var(--accent);
+      padding: 5px 11px;
+      border-radius: 18px;
+      font-size: .78rem;
+      font-weight: 600
+    }
+
+    /* Filters */
+    #fcard {
+      padding: 18px
+    }
+
+    #fcard h3 {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px
+    }
+
+    .fg {
+      margin-bottom: 10px
+    }
+
+    .fl {
+      font-size: .72rem;
+      color: var(--text2);
+      margin-bottom: 5px;
+      display: block
+    }
+
+    .fs {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 11px;
+      border-radius: 10px;
+      font-size: .83rem;
+      outline: none;
+      cursor: pointer;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 11 11'%3E%3Cpath fill='%23888' d='M5.5 7L1 2h9z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 11px center
+    }
+
+    .fs:focus {
+      border-color: var(--accent)
+    }
+
+    .fs option {
+      background: #141428
+    }
+
+    #gsongbtn {
+      width: 100%;
+      margin-top: 5px;
+      padding: 11px;
+      font-size: .88rem;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif
+    }
+
+    #gsongbtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 22px rgba(124, 58, 237, .4)
+    }
+
+    #refreshbtn {
+      margin-top: 5px;
+      padding: 11px 14px;
+      font-size: 1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text2);
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #refreshbtn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* TOP SEARCH BAR */
+    #top-search {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      max-width: 380px;
+      margin: 0 20px;
+    }
+
+    #top-search-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 9px 14px;
+      border-radius: 24px;
+      font-size: .83rem;
+      outline: none;
+      transition: var(--tr);
+      font-family: 'Inter', sans-serif;
+    }
+
+    #top-search-input:focus {
+      border-color: var(--accent);
+      background: rgba(29, 185, 84, 0.07);
+      box-shadow: 0 0 0 3px rgba(29, 185, 84, .1);
+    }
+
+    #top-search-input::placeholder {
+      color: var(--text2);
+    }
+
+    #top-search-btn {
+      background: linear-gradient(135deg, var(--accent), #18a845);
+      color: #000;
+      border: none;
+      padding: 9px 16px;
+      border-radius: 24px;
+      font-weight: 700;
+      font-size: .82rem;
+      cursor: pointer;
+      transition: var(--tr);
+      white-space: nowrap;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    #top-search-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 5px 18px rgba(29, 185, 84, .35);
+    }
+
+    #top-search-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* SEARCH HISTORY DROPDOWN */
+    #search-history-dropdown {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: 0;
+      right: 0;
+      background: rgba(12, 12, 24, 0.97);
+      backdrop-filter: blur(24px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      z-index: 9999;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+      display: none;
+    }
+
+    #search-history-dropdown.open {
+      display: block;
+    }
+
+    .sh-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 14px 6px;
+      font-size: .7rem;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: .8px;
+      font-weight: 600;
+    }
+
+    .sh-clear {
+      background: none;
+      border: none;
+      color: var(--text2);
+      font-size: .7rem;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      padding: 2px 6px;
+      border-radius: 5px;
+      transition: var(--tr);
+    }
+
+    .sh-clear:hover {
+      color: #e74c3c;
+    }
+
+    .sh-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 14px;
+      cursor: pointer;
+      transition: var(--tr);
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: .83rem;
+    }
+
+    .sh-item:hover {
+      background: rgba(29, 185, 84, 0.09);
+    }
+
+    .sh-item-icon {
+      color: var(--text2);
+      font-size: .85rem;
+      flex-shrink: 0;
+    }
+
+    .sh-item-text {
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .sh-item-del {
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: .75rem;
+      padding: 2px 5px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: var(--tr);
+    }
+
+    .sh-item:hover .sh-item-del {
+      opacity: 1;
+    }
+
+    .sh-item-del:hover {
+      color: #e74c3c;
+    }
+
+    #top-search {
+      position: relative;
+    }
+
+    .songbtn-row {
+      display: flex;
+      gap: 7px;
+      align-items: stretch;
+    }
+
+    /* CENTER */
+    #cp {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    #npcard {
+      padding: 26px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px
+    }
+
+    #aaWrap {
+      position: relative;
+      width: 190px;
+      height: 190px;
+      flex-shrink: 0
+    }
+
+    #aaWrap.playing #aat {
+      box-shadow: 0 18px 55px rgba(29, 185, 84, .42);
+      animation: apulse 3s ease-in-out infinite
+    }
+
+    @keyframes apulse {
+
+      0%,
+      100% {
+        transform: scale(1)
+      }
+
+      50% {
+        transform: scale(1.025)
+      }
+    }
+
+    .vring {
+      position: absolute;
+      top: -7px;
+      left: -7px;
+      right: -7px;
+      bottom: -7px;
+      border: 2px solid rgba(29, 185, 84, .22);
+      border-radius: 23px;
+      display: none;
+      animation: vspin 8s linear infinite
+    }
+
+    #aaWrap.playing .vring {
+      display: block
+    }
+
+    @keyframes vspin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    #aat {
+      width: 190px;
+      height: 190px;
+      border-radius: 16px;
+      object-fit: cover;
+      box-shadow: 0 18px 55px rgba(0, 0, 0, .6);
+      transition: var(--tr)
+    }
+
+    #tinfo {
+      text-align: center;
+      width: 100%
+    }
+
+    #tname {
+      font-size: 1.15rem;
+      font-weight: 800;
+      margin-bottom: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    #tartist {
+      color: var(--text2);
+      font-size: .88rem
+    }
+
+    #talbum {
+      color: var(--text2);
+      font-size: .73rem;
+      margin-top: 3px
+    }
+
+    /* Waveform */
+    #wvf {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 38px;
+      margin: 2px 0
+    }
+
+    .wb {
+      width: 4px;
+      background: linear-gradient(to top, var(--accent2), var(--accent));
+      border-radius: 2px;
+      animation: wva 1.2s ease-in-out infinite;
+      opacity: .25
+    }
+
+    .wb:nth-child(1) {
+      height: 14px;
+      animation-delay: 0s
+    }
+
+    .wb:nth-child(2) {
+      height: 24px;
+      animation-delay: .1s
+    }
+
+    .wb:nth-child(3) {
+      height: 34px;
+      animation-delay: .2s
+    }
+
+    .wb:nth-child(4) {
+      height: 19px;
+      animation-delay: .3s
+    }
+
+    .wb:nth-child(5) {
+      height: 30px;
+      animation-delay: .15s
+    }
+
+    .wb:nth-child(6) {
+      height: 38px;
+      animation-delay: .05s
+    }
+
+    .wb:nth-child(7) {
+      height: 22px;
+      animation-delay: .25s
+    }
+
+    .wb:nth-child(8) {
+      height: 31px;
+      animation-delay: .35s
+    }
+
+    .wb:nth-child(9) {
+      height: 17px;
+      animation-delay: .45s
+    }
+
+    .wb:nth-child(10) {
+      height: 27px;
+      animation-delay: .1s
+    }
+
+    .wb:nth-child(11) {
+      height: 36px;
+      animation-delay: .2s
+    }
+
+    .wb:nth-child(12) {
+      height: 16px;
+      animation-delay: .3s
+    }
+
+    @keyframes wva {
+
+      0%,
+      100% {
+        transform: scaleY(.35)
+      }
+
+      50% {
+        transform: scaleY(1)
+      }
+    }
+
+    #wvf.active .wb {
+      opacity: 1
+    }
+
+    /* Progress */
+    .pwrap {
+      width: 100%
+    }
+
+    .ptimes {
+      display: flex;
+      justify-content: space-between;
+      font-size: .7rem;
+      color: var(--text2);
+      margin-bottom: 5px
+    }
+
+    #pbwrap {
+      position: relative;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      cursor: pointer
+    }
+
+    #pb {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 2px;
+      width: 0%;
+      transition: width .5s linear;
+      pointer-events: none
+    }
+
+    #pbwrap:hover {
+      height: 6px;
+      margin-top: -1px
+    }
+
+    /* Controls */
+    .pctrl {
+      display: flex;
+      align-items: center;
+      gap: 14px
+    }
+
+    .cbtn {
+      background: none;
+      border: none;
+      color: var(--text2);
+      cursor: pointer;
+      font-size: 1.25rem;
+      transition: var(--tr);
+      padding: 7px;
+      border-radius: 50%
+    }
+
+    .cbtn:hover {
+      color: var(--text);
+      background: var(--surface2)
+    }
+
+    #ppbtn {
+      width: 52px;
+      height: 52px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 50%;
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--tr);
+      box-shadow: 0 0 24px rgba(29, 185, 84, .42)
+    }
+
+    #ppbtn:hover {
+      opacity: 0.88;
+    }
+
+    .cbtn.active {
+      color: var(--accent);
+      background: rgba(29, 185, 84, 0.15);
+      border-radius: 50%;
+    }
+
+    .volwrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      width: 100%;
+      max-width: 170px
+    }
+
+    .volwrap span {
+      font-size: .95rem;
+      color: var(--text2)
+    }
+
+    #volslider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 4px;
+      background: var(--surface2);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer
+    }
+
+    #volslider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(29, 185, 84, .5)
+    }
+
+    #pvbadge {
+      display: none;
+      font-size: .7rem;
+      color: var(--accent3);
+      background: rgba(245, 158, 11, .1);
+      border: 1px solid rgba(245, 158, 11, .22);
+      padding: 3px 9px;
+      border-radius: 18px
+    }
+
+    .empty-st {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 38px 18px;
+      color: var(--text2);
+      gap: 10px
+    }
+
+    .empty-st .ei {
+      font-size: 2.8rem;
+      opacity: .35
+    }
+
+    .empty-st p {
+      font-size: .86rem;
+      text-align: center;
+      opacity: .65
+    }
+
+    /* RIGHT */
+    #rp {
+      display: flex;
+      flex-direction: column;
+      gap: 14px
+    }
+
+    #plcard {
+      padding: 18px;
+      flex: 1;
+      display: flex;
+      flex-direction: column
+    }
+
+    #plcard h3 {
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text2);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 14px
+    }
+
+    #pllist {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow-y: auto;
+      max-height: calc(100vh - 250px)
+    }
+
+    .pli {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: var(--tr);
+      border: 1px solid transparent;
+      position: relative;
+      overflow: hidden
+    }
+
+    .pli::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg,
+          rgba(29, 185, 84, .08), rgba(124, 58, 237, .08));
+      opacity: 0;
+      transition: var(--tr)
+    }
+
+    .pli:hover {
+      background: var(--surface2);
+      border-color: var(--border)
+    }
+
+    .pli:hover::before {
+      opacity: 1
+    }
+
+    .pli.active {
+      background: rgba(29, 185, 84, .1);
+      border-color: rgba(29, 185, 84, .3);
+      box-shadow: 0 0 18px rgba(29, 185, 84, .14)
+    }
+
+    .pli.active::before {
+      opacity: 1
+    }
+
+    .pnum {
+      font-size: .77rem;
+      color: var(--text2);
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0
+    }
+
+    .pli.active .pnum {
+      display: none
+    }
+
+    .plicn {
+      display: none;
+      font-size: .77rem;
+      color: var(--accent);
+      width: 16px;
+      text-align: center;
+      flex-shrink: 0
+    }
+
+    .pli.active .plicn {
+      display: block
+    }
+
+    .part {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: var(--surface2)
+    }
+
+    .pinfo {
+      flex: 1;
+      min-width: 0
+    }
+
+    .pname {
+      font-size: .83rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .pli.active .pname {
+      color: var(--accent)
+    }
+
+    .partist {
+      font-size: .72rem;
+      color: var(--text2);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis
+    }
+
+    .pdur {
+      font-size: .7rem;
+      color: var(--text2);
+      flex-shrink: 0
+    }
+
+    .spl-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px
+    }
+
+    .spa {
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      flex-shrink: 0
+    }
+
+    .spi {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 5px
+    }
+
+    /* TOAST */
+    #tc {
+      position: fixed;
+      top: 80px;
+      right: 22px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 9px
+    }
+
+    .toast {
+      background: var(--glass);
+      backdrop-filter: blur(22px);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: .83rem;
+      max-width: 300px;
+      animation: tin .3s ease;
+      display: flex;
+      align-items: center;
+      gap: 9px
+    }
+
+    .toast.success {
+      border-left: 3px solid var(--accent)
+    }
+
+    .toast.error {
+      border-left: 3px solid #e74c3c
+    }
+
+    .toast.info {
+      border-left: 3px solid #60a5fa
+    }
+
+    @keyframes tin {
+      from {
+        opacity: 0;
+        transform: translateX(100%)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    @keyframes tout {
+      from {
+        opacity: 1;
+        transform: none
+      }
+
+      to {
+        opacity: 0;
+        transform: translateX(100%)
+      }
+    }
+
+    /* RESPONSIVE */
+    @media(max-width:1080px) {
+      #main {
+        grid-template-columns: 270px 1fr
+      }
+
+      #rp {
+        display: none
+      }
+    }
+
+    @media(max-width:700px) {
+      #hdr {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px;
+      }
+
+      #top-search {
+        max-width: 100%;
+        width: 100%;
+      }
+
+      #ua {
+        width: 100%;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      #main {
+        grid-template-columns: 1fr;
+        padding: 10px
+      }
+
+      #rp {
+        display: block
+      }
+
+      #pllist {
+        max-height: 280px
+      }
+
+      #aat,
+      #aaWrap {
+        width: 140px;
+        height: 140px
+      }
+
+      .pctrl {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .volwrap {
+        justify-content: center;
+        margin-top: 10px;
+      }
+    }
+
+    /* YouTube Switch Button */
+    #yt-switch-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 24px;
+      border: none;
+      background: linear-gradient(135deg, #7c3aed, #3cf0ff);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: .28s cubic-bezier(.4, 0, .2, 1);
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(124, 58, 237, .4);
+    }
+
+    #yt-switch-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(124, 58, 237, .55);
+      opacity: .9;
+    }
+
+    #yt-goto-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 9px 18px;
+      border-radius: 24px;
+      border: none;
+      background: linear-gradient(135deg, #cc0000, #ff4444);
+      color: #fff;
+      font-family: 'Inter', sans-serif;
+      font-size: .82rem;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      transition: .28s cubic-bezier(.4, 0, .2, 1);
+      white-space: nowrap;
+      box-shadow: 0 4px 16px rgba(204, 0, 0, .4);
+    }
+
+    #yt-goto-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(204, 0, 0, .55);
+    }
+    
+    /* Emotion Mode button in header */
+    .emo-btn-top {
+      background: linear-gradient(135deg, var(--accent2), var(--accent));
+      border: none;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 50px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: .28s cubic-bezier(.4, 0, .2, 1);
+      font-size: .88rem;
+      font-weight: 800;
+      flex-shrink: 0;
+      box-shadow: 0 4px 14px rgba(29, 185, 84, 0.25);
+    }
+    .emo-btn-top:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(29, 185, 84, 0.45);
+    }
+
+    /* ── EMOTION OVERLAY ── */
+    #emo-overlay {
+      position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+      background: #08080f;
+      z-index: 99999; display: none; flex-direction: column;
+      padding: 24px 28px; font-family: 'Inter', sans-serif;
+      overflow-y: auto;
+    }
+    #emo-overlay::before {
+      content: ''; position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse at 15% 50%, rgba(124,58,237,.22) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 20%, rgba(29,185,84,.15) 0%, transparent 55%),
+        radial-gradient(ellipse at 55% 85%, rgba(245,158,11,.10) 0%, transparent 55%),
+        linear-gradient(135deg, #08080f 0%, #0f0820 50%, #080f08 100%);
+      pointer-events: none; animation: meshPan 18s ease-in-out infinite alternate;
+    }
+    #emo-overlay > * { position: relative; z-index: 1; }
+
+    .emo-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:22px; }
+    .emo-logo { display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.15rem; }
+    .emo-logo img { width:34px; border-radius:9px; }
+    .emo-close {
+      background: rgba(255,255,255,0.08); border: 1px solid var(--border);
+      color: var(--text); padding: 8px 16px; border-radius: 8px;
+      cursor:pointer; transition:var(--tr); font-family:'Inter',sans-serif;
+    }
+    .emo-close:hover { background: rgba(255,255,255,0.15); }
+    .emo-grid { display:grid; grid-template-columns:1fr 300px; gap:18px; align-items:stretch; }
+    .emo-left-panel { display:flex; flex-direction:column; gap:14px; }
+    .emo-top-cards { display:grid; grid-template-columns:3fr 2fr; gap:14px; }
+    @media(max-width:900px){ .emo-grid{grid-template-columns:1fr;} .emo-top-cards{grid-template-columns:1fr 1fr;} }
+    @media(max-width:600px){ .emo-top-cards{grid-template-columns:1fr;} }
+
+    .emo-card {
+      background:var(--glass); backdrop-filter:blur(22px);
+      -webkit-backdrop-filter:blur(22px);
+      border:1px solid var(--border); border-radius:16px;
+      padding:18px; display:flex; flex-direction:column;
+    }
+    .emo-header { font-size:.82rem; font-weight:700; color:var(--text2); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+
+    /* Camera card */
+    .emo-cam-view {
+      flex:1; background:rgba(0,0,0,0.55); border-radius:10px;
+      border:1px solid rgba(255,255,255,0.1); position:relative;
+      overflow:hidden; min-height:170px; display:flex; align-items:center; justify-content:center;
+    }
+    #emo-video { width:100%; height:100%; object-fit:cover; display:none; }
+    .emo-cam-placeholder { text-align:center; color:var(--text2); font-size:.95rem; padding:14px; z-index:5; }
+    .emo-btns { display:flex; gap:8px; margin-top:10px; }
+    .emo-btn { flex:1; border:none; padding:9px; border-radius:8px; font-weight:700; cursor:pointer; transition:.2s; font-family:'Inter',sans-serif; font-size:.8rem; }
+    .emo-start { background:linear-gradient(135deg,var(--accent),#18a845); color:#000; }
+    .emo-start:hover { box-shadow:0 5px 18px rgba(29,185,84,.4); transform:translateY(-1px); }
+    .emo-stop  { background:var(--surface2); border:1px solid var(--border); color:var(--text2); }
+    .emo-stop:hover  { border-color:#e74c3c; color:#e74c3c; }
+
+    /* Emotion detect box (compact) */
+    .emo-detect-box { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,0.03); padding:14px; }
+    .emo-emoji { font-size:2.4rem; margin-bottom:8px; }
+    .emo-label { font-size:.88rem; font-weight:700; color:var(--text); }
+    .emo-desc  { font-size:.7rem; color:var(--text2); margin-top:5px; }
+
+    /* Playlist */
+    .emo-plist { flex:1; overflow-y:auto; border:1px solid var(--border); border-radius:10px; background:rgba(255,255,255,0.02); }
+    .emo-song { padding:10px 14px; border-bottom:1px solid rgba(255,255,255,0.05); font-size:.83rem; cursor:pointer; transition:var(--tr); display:flex; align-items:center; gap:10px; }
+    .emo-song:hover { background:rgba(29,185,84,0.07); }
+
+    /* ══ EMOTION MUSIC PLAYER ══ */
+    .emp-card { flex-shrink:0; }
+    .emp-player { display:flex; align-items:center; gap:16px; width:100%; }
+
+    /* Vinyl art */
+    .emp-art-wrap { position:relative; flex-shrink:0; width:66px; height:66px; }
+    #emp-art {
+      width:66px; height:66px; border-radius:50%; object-fit:cover;
+      box-shadow:0 0 14px rgba(29,185,84,.22); transition:box-shadow .4s;
+    }
+    .emp-art-wrap.emp-playing #emp-art {
+      animation:empSpin 8s linear infinite;
+      box-shadow:0 0 28px rgba(29,185,84,.7),0 0 55px rgba(29,185,84,.2);
+    }
+    .emp-disc-ring {
+      position:absolute; inset:-5px; border-radius:50%;
+      border:2.5px solid rgba(29,185,84,0); display:none;
+    }
+    .emp-art-wrap.emp-playing .emp-disc-ring {
+      display:block; border-color:rgba(29,185,84,.55);
+      box-shadow:0 0 14px rgba(29,185,84,.4);
+      animation:empRingSpin 3s linear infinite;
+    }
+    @keyframes empSpin    { to { transform:rotate(360deg); } }
+    @keyframes empRingSpin{ 0%{transform:rotate(0deg);border-color:rgba(29,185,84,.55);}50%{border-color:rgba(124,58,237,.7);}to{transform:rotate(360deg);border-color:rgba(29,185,84,.55);} }
+
+    /* Center track info + controls */
+    .emp-center { flex:1; display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .emp-info   { display:flex; flex-direction:column; gap:2px; }
+    .emp-tname  { font-size:.9rem; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .emp-tartist{ font-size:.7rem; color:var(--text2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+    /* Progress */
+    .emp-prog-wrap { display:flex; align-items:center; gap:7px; }
+    .emp-ptime { font-size:.62rem; color:var(--text2); flex-shrink:0; min-width:26px; }
+    .emp-prog-bar { flex:1; height:4px; background:var(--surface2); border-radius:2px; cursor:pointer; position:relative; }
+    .emp-prog-bar:hover { height:6px; }
+    .emp-prog-fill {
+      height:100%; border-radius:2px; width:0%;
+      background:linear-gradient(90deg,var(--accent),var(--accent2));
+      box-shadow:0 0 8px rgba(29,185,84,.55);
+      transition:width .4s linear; position:relative;
+    }
+    .emp-prog-fill::after {
+      content:''; position:absolute; right:-5px; top:50%; transform:translateY(-50%);
+      width:11px; height:11px; background:#fff; border-radius:50%;
+      box-shadow:0 0 8px rgba(29,185,84,.8); opacity:0; transition:opacity .2s;
+    }
+    .emp-prog-bar:hover .emp-prog-fill::after { opacity:1; }
+
+    /* Controls */
+    .emp-controls { display:flex; align-items:center; gap:9px; }
+    .emp-cbtn { background:none; border:none; color:var(--text2); cursor:pointer; font-size:1rem; transition:var(--tr); padding:5px; border-radius:50%; }
+    .emp-cbtn:hover  { color:var(--text); background:var(--surface2); }
+    .emp-cbtn.active { color:var(--accent); }
+    #emp-play-btn {
+      width:40px; height:40px;
+      background:linear-gradient(135deg,var(--accent),var(--accent2));
+      border:none; border-radius:50%; color:#fff; font-size:1rem;
+      cursor:pointer; transition:var(--tr); flex-shrink:0;
+      display:flex; align-items:center; justify-content:center;
+      box-shadow:0 0 18px rgba(29,185,84,.5);
+    }
+    #emp-play-btn.emp-pulsing { animation:empPulse 1.8s ease-in-out infinite; }
+    @keyframes empPulse {
+      0%,100% { box-shadow:0 0 18px rgba(29,185,84,.5); transform:scale(1); }
+      50% { box-shadow:0 0 36px rgba(29,185,84,.95),0 0 65px rgba(29,185,84,.25); transform:scale(1.07); }
+    }
+
+    /* Right: volume */
+    .emp-right { display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex-shrink:0; }
+    .emp-vol-row { display:flex; align-items:center; gap:6px; }
+    .emp-vol-row span { font-size:.85rem; color:var(--text2); }
+    #emp-vol-slider { width:110px; -webkit-appearance:none; height:4px; background:var(--surface2); border-radius:2px; outline:none; cursor:pointer; }
+    #emp-vol-slider::-webkit-slider-thumb { -webkit-appearance:none; width:12px; height:12px; border-radius:50%; background:var(--accent); cursor:pointer; box-shadow:0 0 5px rgba(29,185,84,.5); }
+    #emp-pvbadge { font-size:.62rem; color:var(--accent3); background:rgba(245,158,11,.1); border:1px solid rgba(245,158,11,.22); padding:2px 8px; border-radius:20px; display:none; }
+  </style>
+  {% endraw %}
+</head>
+
+<body>
+  <div class="mesh-bg"></div><canvas id="pcanvas"></canvas>
+  <div id="tc"></div>
+
+  <!-- Emotion Mode Overlay -->
+  <div id="emo-overlay">
+    <div class="emo-top">
+      <div class="emo-logo"><img src="/static/logo.png" alt="logo"> Moodwave Music</div>
+      <button class="emo-close" onclick="closeEmotionMode()">← Back to Music</button>
+    </div>
+    <div class="emo-grid">
+
+      <!-- LEFT PANEL -->
+      <div class="emo-left-panel">
+
+        <!-- TOP ROW: Camera + Emotion -->
+        <div class="emo-top-cards">
+
+          <!-- Camera Card -->
+          <div class="emo-card">
+            <div class="emo-header" style="color:#1DB954">● Camera / Detect</div>
+            <div class="emo-cam-view">
+              <div class="emo-cam-placeholder" id="emo-placeholder">📷<br><br>Enable camera to start</div>
+              <video id="emo-video" autoplay muted playsinline></video>
+            </div>
+            <div class="emo-btns">
+              <button class="emo-btn emo-start" onclick="startEmotionCam()">► Start Camera</button>
+              <button class="emo-btn emo-stop"  onclick="stopEmotionCam()">■ Stop</button>
+            </div>
+          </div>
+
+          <!-- Emotion Card -->
+          <div class="emo-card">
+            <div class="emo-header">😄 Detected Emotion</div>
+            <div class="emo-detect-box">
+              <div class="emo-emoji" id="emo-display-emoji">👁️</div>
+              <div class="emo-label" id="emo-display-text">Waiting for camera...</div>
+              <div class="emo-desc"  id="emo-display-desc">Start camera to detect emotion</div>
+            </div>
+          </div>
+
+        </div><!-- /emo-top-cards -->
+
+        <!-- MUSIC PLAYER BAR -->
+        <div class="emo-card emp-card">
+          <div class="emp-player">
+
+            <!-- Vinyl Art -->
+            <div class="emp-art-wrap" id="emp-art-wrap">
+              <div class="emp-disc-ring"></div>
+              <img id="emp-art"
+                src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='66' height='66'%3E%3Ccircle cx='33' cy='33' r='33' fill='%23141428'/%3E%3Ccircle cx='33' cy='33' r='9' fill='%23282848'/%3E%3Ctext x='33' y='37' text-anchor='middle' font-size='9' fill='%23333'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E"
+                alt="Now Playing">
+            </div>
+
+            <!-- Center: info + progress + controls -->
+            <div class="emp-center">
+              <div class="emp-info">
+                <div class="emp-tname"   id="emp-tname">— No track selected —</div>
+                <div class="emp-tartist" id="emp-tartist">Detect emotion to load playlist</div>
+              </div>
+              <div class="emp-prog-wrap">
+                <span class="emp-ptime" id="emp-ctime">0:00</span>
+                <div class="emp-prog-bar" id="emp-prog-bar" onclick="empSeek(event)">
+                  <div class="emp-prog-fill" id="emp-prog-fill"></div>
+                </div>
+                <span class="emp-ptime" style="text-align:right" id="emp-ttime">0:00</span>
+              </div>
+              <div class="emp-controls">
+                <button class="emp-cbtn" id="emp-shuf-btn" onclick="empToggleShuffle()" title="Shuffle">🔀</button>
+                <button class="emp-cbtn" onclick="empPrev()" title="Previous">⏮</button>
+                <button id="emp-play-btn" onclick="empTogglePlay()">▶</button>
+                <button class="emp-cbtn" onclick="empNext()" title="Next">⏭</button>
+                <button class="emp-cbtn" id="emp-rep-btn" onclick="empToggleRepeat()" title="Repeat">🔁</button>
+              </div>
+              <div class="emp-vol-row">
+                <span>🔉</span>
+                <input type="range" id="emp-vol-slider" min="0" max="100" value="80" oninput="empSetVol(this.value)">
+                <span>🔊</span>
+                <span id="emp-pvbadge">⚡ 30s</span>
+              </div>
+            </div>
+
+          </div>
+        </div><!-- /emp-card -->
+        <!-- Hidden YouTube IFrame player for songs without preview -->
+        <div id="emp-yt-player" style="position:absolute;width:320px;height:240px;left:-9999px;top:-9999px;opacity:0.01;pointer-events:none;overflow:hidden"></div>
+
+      </div><!-- /emo-left-panel -->
+
+      <!-- PLAYLIST (right column, full height) -->
+      <div class="emo-card" style="min-height:100%">
+        <div class="emo-header">🎵 Your Playlist</div>
+        <div class="emo-plist">
+          <div id="emo-plist-container"
+            style="text-align:center;padding:40px;color:var(--text2);font-size:.9rem">
+            Detect emotion → Songs appear here
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+  <!-- HEADER -->
+  <header id="hdr">
+    <div class="logo">
+      <div class="logo-ico" style="background:none;padding:0;overflow:hidden">
+        <img src="/static/logo.png" alt="Moodwave"
+          style="width:36px;height:36px;border-radius:10px;object-fit:cover;display:block">
+      </div>
+      <div>Moodwave <span>Music</span></div>
+    </div>
+    
+    <!-- Emotion Mode Button -->
+    <button class="emo-btn-top" onclick="openEmotionMode()">
+      Emotion Mode
+    </button>
+    
+    <div id="top-search">
+      <input type="text" id="top-search-input" placeholder="Search any song on MoodWave..."
+        onkeydown="if(event.key==='Enter')searchTopSong()" onfocus="openSearchHistory()"
+        oninput="filterSearchHistory(this.value)">
+      <button id="top-search-btn" onclick="searchTopSong()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" fill="none" />
+        </svg>
+      </button>
+      <div id="search-history-dropdown">
+        <div class="sh-header">
+          <span>🕙 Recent Searches</span>
+          <button class="sh-clear" onclick="clearSearchHistory(event)">Clear all</button>
+        </div>
+        <div id="sh-list"></div>
+      </div>
+    </div>
+
+    <div id="ua">
+      <button id="offline-goto-btn" onclick="location.href='/offline'" title="Open Offline Mode" style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); padding: 9px 16px; border-radius: 50px; color: white; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-family: 'Inter', sans-serif;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/></svg>
+        Offline Mode
+      </button>
+
+      <button id="yt-goto-btn" onclick="location.href='/yt/'" title="Open YouTube App">
+        <svg width="17" height="13" viewBox="0 0 24 17" fill="currentColor">
+          <path
+            d="M23.5 2.7s-.3-2-1.2-2.9C21.2-.4 19.9-.4 19.3-.5 16.1-.7 12-.7 12-.7s-4.1 0-7.3.2C4.1-.4 2.8-.4 1.7.7.8 1.6.5 3.7.5 3.7S.2 6 .2 8.3v2.1c0 2.3.3 4.6.3 4.6s.3 2 1.2 2.9c1.1 1.2 2.6 1.1 3.3 1.2C7.2 19.2 12 19.2 12 19.2s4.6 0 7.3-.4c.6-.1 1.9-.1 3-1.3.9-.9 1.2-2.9 1.2-2.9s.3-2.3.3-4.6V7c0-2.3-.3-4.3-.3-4.3zm-14 9.1V4.7l8.3 3.6-8.3 3.5z" />
+        </svg>
+        YouTube
+      </button>
+
+      <button id="sp-login" onclick="location='/login'">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+          <path
+            d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+        </svg>
+        Login with Spotify
+      </button>
+
+      <div id="ubadge">
+        <img id="uavatar" src="" alt="User">
+        <div>
+          <div class="uname" id="uname">Listener</div>
+          <div class="utag" id="utag">FREE</div>
+        </div>
+        <button class="logoutbtn" onclick="location='/logout'">Logout</button>
+      </div>
+    </div>
+  </header>
+  <!-- MAIN -->
+  <main id="main">
+    <!-- LEFT PANEL -->
+    <aside id="lp">
+      <div class="glass" id="wcard">
+        <div class="sbar">
+          <input type="text" id="cinput" placeholder="Enter city name..."
+            onkeydown="if(event.key==='Enter')fetchWeather()">
+          <button class="btn-go" onclick="fetchWeather()">Go</button>
+        </div>
+        <button id="locbtn" onclick="useLocation()">📍 Use My Location</button>
+        <div id="wskel" style="display:none">
+          <div class="skel sl m"></div>
+          <div class="skel sb"></div>
+          <div class="skel sl s"></div>
+          <div class="skel sl m"></div>
+        </div>
+        <div id="winfo">
+          <div class="wtop">
+            <div>
+              <div class="wcity" id="wcity">—</div>
+              <div class="wco" id="wco"></div>
+            </div>
+            <div class="wico"><img id="wico" src="" alt=""></div>
+          </div>
+          <div class="wmeta">
+            <div class="mi">
+              <div class="ml">Temp</div>
+              <div class="mv temp" id="wtemp">—</div>
+            </div>
+            <div class="mi">
+              <div class="ml">Humidity</div>
+              <div class="mv hum" id="whum">—</div>
+            </div>
+            <div class="mi">
+              <div class="ml">Season</div>
+              <div class="mv ssn" id="wssn">—</div>
+            </div>
+            <div class="mi">
+              <div class="ml">Month</div>
+              <div class="mv mth" id="wmth">—</div>
+            </div>
+          </div>
+          <div class="vibe" id="wvibe">—</div>
+          <div><span class="mbadge">🎭 Mood: <span id="wmood">—</span></span></div>
+        </div>
+      </div>
+      <div class="glass" id="fcard">
+        <h3>🎛️ Filters</h3>
+        <div class="fg"><label class="fl">Singer / Artist</label>
+          <select class="fs" id="fsnger" onchange="">
+            <option value="">Any Artist</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Language</label>
+          <select class="fs" id="flang" onchange="updateSingers()">
+            <option value="Hindi">Hindi</option>
+            <option value="English">English</option>
+            <option value="Tamil">Tamil</option>
+            <option value="Telugu">Telugu</option>
+            <option value="Marathi">Marathi</option>
+            <option value="Punjabi">Punjabi</option>
+            <option value="Bengali">Bengali</option>
+            <option value="Bhojpuri">Bhojpuri</option>
+            <option value="Odia">Odia</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Mood</label>
+          <select class="fs" id="fmood">
+            <option value="All">All Moods</option>
+            <option value="Romantic">Romantic 💕</option>
+            <option value="Chill">Chill 😌</option>
+            <option value="Party">Party 🎉</option>
+            <option value="Sad">Sad 😢</option>
+            <option value="Workout">Workout 💪</option>
+            <option value="Classic">Classic 🎼</option>
+          </select>
+        </div>
+        <div class="fg"><label class="fl">Generation</label>
+          <select class="fs" id="fgen">
+            <option value="Trending">Trending 🔥</option>
+            <option value="New Release">New Release ✨</option>
+            <option value="GenZ">Gen Z</option>
+            <option value="2000s">2000s</option>
+            <option value="90s">90s</option>
+          </select>
+        </div>
+        <button id="gsongbtn" onclick="fetchRecs(0)">🎵 Get Recommendations</button>
+      </div>
+    </aside>
+    <!-- CENTER PANEL -->
+    <section id="cp">
+      <div class="glass" id="npcard">
+        <div id="aaWrap">
+          <div class="vring"></div>
+          <img id="aat"
+            src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='190' height='190'%3E%3Crect width='190' height='190' fill='%23141428'/%3E%3Ctext x='95' y='105' text-anchor='middle' font-size='55' fill='%23282848'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E"
+            alt="Album Art">
+        </div>
+        <div id="wvf">
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+          <div class="wb"></div>
+        </div>
+        <div id="tinfo">
+          <div id="tname">No track selected</div>
+          <div id="tartist">—</div>
+          <div id="talbum">Get weather &amp; recommendations to start</div>
+        </div>
+        <div class="pwrap">
+          <div class="ptimes"><span id="ctime">0:00</span><span id="ttime">0:00</span></div>
+          <div id="pbwrap" onclick="seekTo(event)">
+            <div id="pb"></div>
+          </div>
+        </div>
+        <div class="pctrl">
+          <button class="cbtn" id="shufBtn" onclick="toggleShuffle()" title="Shuffle">🔀</button>
+          <button class="cbtn" onclick="prevT()" title="Previous">⏮</button>
+          <button id="ppbtn" onclick="togglePlay()">▶</button>
+          <button class="cbtn" onclick="nextT()" title="Next">⏭</button>
+          <button class="cbtn" id="repBtn" onclick="toggleRepeat()" title="Repeat">🔁</button>
+        </div>
+        <div class="volwrap">
+          <span>🔉</span>
+          <input type="range" id="volslider" min="0" max="100" value="80" oninput="setVol(this.value)">
+          <span>🔊</span>
+        </div>
+        <span id="pvbadge">⚡ 30-sec Preview</span>
+      </div>
+    </section>
+    <!-- RIGHT PANEL -->
+    <aside id="rp">
+      <div class="glass" id="plcard">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <h3 style="margin-bottom:0">🎶 Up Next</h3>
+          <button id="refreshbtn" onclick="fetchRecs(-1)" title="Refresh playlist"
+            style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:5px 9px;font-size:.9rem;cursor:pointer;transition:var(--tr);font-family:'Inter',sans-serif">🔄</button>
+        </div>
+        <div id="pllist">
+          <div class="empty-st">
+            <div class="ei">🎧</div>
+            <p>Search weather &amp; get recommendations to see your playlist here</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+  <audio id="paudio" preload="none"></audio>
+
+
+  {% raw %}
+  <script>
+
+    // ── STATE ──
+    let playlist = [], curIdx = -1, isPlaying = false, isPremium = false;
+    let emotionPlaylist = [];
+    let spPlayer = null, devId = null, accTok = null;
+    let progTimer = null, prevStart = 0, prevDur = 30;
+    let isShuffle = false, isRepeatOne = false;
+    let shuffleQueue = [], shufflePos = 0; // pre-shuffled queue
+    let _shuffleNav = false;              // true when nextT/prevT calls playTrack (don't rebuild queue)
+    let isSearchMode = false;
+    const audio = document.getElementById('paudio');
+
+    // ── YOUTUBE ──
+    function openYouTube() {
+      const name = document.getElementById('tname').textContent;
+      const artist = document.getElementById('tartist').textContent;
+      if (!name || name === 'No track selected') { toast('Play a song first to open on YouTube!', 'info'); return; }
+      const q = encodeURIComponent(name + ' ' + artist + ' official audio');
+      window.open('https://www.youtube.com/results?search_query=' + q, '_blank');
+    }
+
+    // ── PARTICLES ──
+    (() => {
+      const c = document.getElementById('pcanvas'), ctx = c.getContext('2d');
+      let pts = [];
+      const resize = () => { c.width = innerWidth; c.height = innerHeight };
+      resize(); addEventListener('resize', resize);
+      for (let i = 0; i < 55; i++)pts.push({
+        x: Math.random() * innerWidth, y: Math.random() * innerHeight,
+        r: Math.random() * 1.8 + .4, vx: (Math.random() - .5) * .35, vy: (Math.random() - .5) * .35, o: Math.random() * .38 + .08
+      });
+      const draw = () => {
+        ctx.clearRect(0, 0, c.width, c.height);
+        pts.forEach(p => {
+          p.x += p.vx; p.y += p.vy;
+          if (p.x < 0) p.x = c.width; if (p.x > c.width) p.x = 0;
+          if (p.y < 0) p.y = c.height; if (p.y > c.height) p.y = 0;
+          ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${p.o})`; ctx.fill();
+        });
+        for (let i = 0; i < pts.length; i++)for (let j = i + 1; j < pts.length; j++) {
+          const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, d = Math.sqrt(dx * dx + dy * dy);
+          if (d < 115) {
+            ctx.beginPath(); ctx.strokeStyle = `rgba(255,255,255,${.055 * (1 - d / 115)})`;
+            ctx.lineWidth = .45; ctx.moveTo(pts[i].x, pts[i].y); ctx.lineTo(pts[j].x, pts[j].y); ctx.stroke();
+          }
+        }
+        requestAnimationFrame(draw);
+      }; draw();
+    })();
+
+    // ── TOAST ──
+    function toast(msg, type = 'info', ms = 3500) {
+      const ic = { success: '✅', error: '❌', info: 'ℹ️' };
+      const t = document.createElement('div'); t.className = `toast ${type}`;
+      t.innerHTML = `<span>${ic[type] || 'ℹ️'}</span><span>${msg}</span>`;
+      document.getElementById('tc').appendChild(t);
+      setTimeout(() => { t.style.animation = 'tout .3s ease forwards'; setTimeout(() => t.remove(), 300); }, ms);
+    }
+
+    // ── SPOTIFY SDK ──
+    window.onSpotifyWebPlaybackSDKReady = () => {
+      fetch('/api/token').then(r => r.ok ? r.json() : null).then(d => {
+        if (!d || d.error) return;
+        accTok = d.access_token; isPremium = d.product === 'premium';
+        if (isPremium) initSDK(accTok);
+      }).catch(() => { });
+    };
+    function initSDK(tok) {
+      spPlayer = new Spotify.Player({
+        name: 'Moodwave Music Player',
+        getOAuthToken: cb => cb(tok), volume: .8
+      });
+      spPlayer.addListener('ready', ({ device_id }) => { devId = device_id; toast('Spotify Premium ready! 🎉', 'success'); });
+      let lastPos = 0;
+      spPlayer.addListener('player_state_changed', s => {
+        if (!s) return; 
+        const isEmo = document.getElementById('emo-overlay').style.display === 'flex';
+        if (isEmo) {
+          empSetState(!s.paused);
+          if (s.paused && s.position === 0 && lastPos > 0 && s.track_window.previous_tracks.length > 0) {
+            if (empRepeat) playEmotionTrack(emoIdx); else empNext();
+          }
+        } else {
+          isPlaying = !s.paused; updBtn(); wvf(isPlaying);
+          updProg(s.position / 1000, s.duration / 1000);
+          if (s.paused && s.position === 0 && lastPos > 0 && s.track_window.previous_tracks.length > 0) {
+            if (isRepeatOne) playTrack(curIdx); else nextT();
+          }
+        }
+        lastPos = s.position;
+      });
+      spPlayer.connect();
+      setInterval(() => {
+        if (spPlayer) {
+          const isEmo = document.getElementById('emo-overlay').style.display === 'flex';
+          const playing = isEmo ? empPlaying : isPlaying;
+          if (playing) {
+            spPlayer.getCurrentState().then(s => {
+              if (s && !s.paused) {
+                if(!isEmo) { updProg(s.position / 1000, s.duration / 1000); }
+                lastPos = s.position;
+              } else if (s && s.paused && s.position === 0 && lastPos > 0) {
+                if (isEmo) { if (empRepeat) playEmotionTrack(emoIdx); else empNext(); }
+                else { if (isRepeatOne) playTrack(curIdx); else nextT(); }
+                lastPos = 0;
+              }
+            });
+          }
+        }
+      }, 1000);
+    }
+
+    // ── WEATHER ──
+    function fetchWeather(lat, lon) {
+      const city = document.getElementById('cinput').value.trim();
+      if (!lat && !city) { toast('Please enter a city name', 'error'); return; }
+      document.getElementById('wskel').style.display = 'block';
+      document.getElementById('winfo').style.display = 'none';
+      const url = (lat !== undefined && lat !== null) ? `/api/weather?lat=${lat}&lon=${lon}` : `/api/weather?city=${encodeURIComponent(city)}`;
+      fetch(url).then(r => r.json()).then(d => {
+        document.getElementById('wskel').style.display = 'none';
+        if (d.error) { toast(d.error, 'error'); return; }
+        showWeather(d);
+      }).catch(() => { document.getElementById('wskel').style.display = 'none'; toast('Network error', 'error'); });
+    }
+    function showWeather(d) {
+      document.getElementById('wcity').textContent = d.city;
+      document.getElementById('wco').textContent = d.country;
+      document.getElementById('wico').src = d.weather_icon;
+      document.getElementById('wtemp').textContent = d.temperature + '°C';
+      document.getElementById('whum').textContent = d.humidity + '%';
+      document.getElementById('wssn').textContent = d.season;
+      document.getElementById('wmth').textContent = d.month;
+      document.getElementById('wvibe').textContent = d.vibe;
+      document.getElementById('wmood').textContent = d.mood;
+      document.getElementById('winfo').style.display = 'block';
+      const ms = document.getElementById('fmood');
+      for (let i = 0; i < ms.options.length; i++) { if (ms.options[i].value === d.mood) { ms.selectedIndex = i; break; } }
+    }
+    function useLocation() {
+      if (!navigator.geolocation) { toast('Geolocation not supported', 'error'); return; }
+      const b = document.getElementById('locbtn');
+      b.innerHTML = '📡 Getting location...'; b.disabled = true;
+      navigator.geolocation.getCurrentPosition(
+        p => {
+          b.innerHTML = '📍 Use My Location'; b.disabled = false;
+          const lat = p.coords.latitude;
+          const lon = p.coords.longitude;
+          // Clear city input so lat/lon is used
+          document.getElementById('cinput').value = '';
+          fetchWeather(lat, lon);
+        },
+        e => {
+          b.innerHTML = '📍 Use My Location'; b.disabled = false;
+          const m = { 1: 'Location permission denied.', 2: 'Position unavailable.', 3: 'Request timed out.' };
+          toast(m[e.code] || 'Could not get location.', 'error');
+        },
+        { enableHighAccuracy: false, timeout: 8000 }
+      );
+    }
+
+    // ── RECOMMENDATIONS ──
+    function fetchRecs(offsetOverride) {
+      const mood = document.getElementById('fmood').value;
+      const singer = document.getElementById('fsnger').value;
+      const lang = document.getElementById('flang').value;
+      const gen = document.getElementById('fgen').value;
+      // variant=0 → primary genre term; variant=1 or 2 → alternate genre terms (for Refresh)
+      const variant = (offsetOverride === -1) ? (Math.floor(Math.random() * 2) + 1) : 0;
+      showPlSkel();
+      fetch(`/api/recommend?mood=${mood}&singer=${encodeURIComponent(singer)}&language=${lang}&generation=${encodeURIComponent(gen)}&variant=${variant}`)
+        .then(r => r.json()).then(d => {
+          if (d.error) { toast(d.error, 'error'); clearPlSkel(); return; }
+          playlist = d.tracks; curIdx = -1; isPlaying = false; updBtn();
+          renderPl();
+          if (playlist.length) toast(`Found ${playlist.length} unique tracks!`, 'success');
+          else clearPlSkel();
+        }).catch(() => { clearPlSkel(); toast('Failed to fetch recommendations', 'error'); });
+    }
+    function showPlSkel() {
+      const l = document.getElementById('pllist'); l.innerHTML = '';
+      for (let i = 0; i < 8; i++)l.innerHTML += `<div class="spl-item"><div class="skel spa"></div><div class="spi"><div class="skel sl m" style="height:11px"></div><div class="skel sl s" style="height:9px"></div></div></div>`;
+    }
+    function clearPlSkel() {
+      document.getElementById('pllist').innerHTML = '<div class="empty-st"><div class="ei">😕</div><p>No tracks found. Try different filters.</p></div>';
+    }
+    function renderPl() {
+      const l = document.getElementById('pllist'); l.innerHTML = '';
+      const FALLBACK = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40'%3E%3Crect fill='%23202035' width='40' height='40'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='%23444' font-size='16'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E";
+      playlist.forEach((t, i) => {
+        const el = document.createElement('div');
+        el.className = 'pli' + (i === curIdx ? ' active' : ''); el.id = `pli${i}`; el.onclick = () => playTrack(i);
+        el.innerHTML = `<span class="pnum">${i + 1}</span><span class="plicn">▶</span>
+      <img class="part" src="${t.album_art || FALLBACK}" alt="" onerror="this.src='${FALLBACK}'">
+      <div class="pinfo"><div class="pname">${t.name}</div><div class="partist">${t.artists}</div></div>
+      <span class="pdur">${t.duration}</span>`;
+        l.appendChild(el);
+      });
+    }
+
+    // ── PLAYER ──
+    function playTrack(idx) {
+      if (idx < 0 || idx >= playlist.length) return;
+      stopAll(); curIdx = idx; const t = playlist[idx];
+      // Rebuild shuffle queue ONLY when user manually clicks a song (not during shuffle navigation)
+      if (isShuffle && !_shuffleNav) buildShuffleQueue(idx);
+      document.getElementById('aat').src = t.album_art || '';
+      document.getElementById('tname').textContent = t.name;
+      document.getElementById('tartist').textContent = t.artists;
+      document.getElementById('talbum').textContent = t.album;
+      document.querySelectorAll('.pli').forEach((el, i) => el.classList.toggle('active', i === idx));
+      document.getElementById(`pli${idx}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      document.getElementById('aaWrap').classList.remove('playing');
+      if (spPlayer && isPremium && devId) {
+        document.getElementById('aaWrap').classList.add('playing');
+        playSDK(t.uri); document.getElementById('pvbadge').style.display = 'none';
+      } else if (t.preview_url) {
+        document.getElementById('aaWrap').classList.add('playing');
+        playPrev(t.preview_url); document.getElementById('pvbadge').style.display = 'inline-flex';
+      } else {
+        // No preview - auto skip to next song after a short delay
+        toast('⏭ No preview for this song, skipping to next...', 'info', 2000);
+        isPlaying = false; updBtn(); wvf(false);
+        setTimeout(() => nextT(), 1200);
+      }
+    }
+    function playSDK(uri) {
+      fetch('/api/player', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'play', payload: { uris: [uri], device_id: devId } })
+      })
+        .then(r => {
+          if (!r.ok) throw new Error('SDK play failed');
+          isPlaying = true; updBtn(); wvf(true);
+        })
+        .catch(() => {
+          // Fallback to preview URL
+          const t = playlist[curIdx] || window._searchedTrack;
+          if (t && t.preview_url) {
+            playPrev(t.preview_url);
+            document.getElementById('pvbadge').style.display = 'inline-flex';
+          } else if (t && t.external_url) {
+            toast('Full playback needs Spotify Premium. <a href="' + t.external_url + '" target="_blank" style="color:var(--accent)">Open in Spotify ↗</a>', 'info', 5000);
+            isPlaying = false; updBtn(); wvf(false);
+            document.getElementById('aaWrap').classList.remove('playing');
+          } else {
+            toast('Playback failed. Login with Spotify Premium for full playback.', 'error');
+            isPlaying = false; updBtn(); wvf(false);
+            document.getElementById('aaWrap').classList.remove('playing');
+          }
+        });
+    }
+    function playPrev(url) {
+      audio.src = url; audio.volume = document.getElementById('volslider').value / 100;
+      audio.play().then(() => { isPlaying = true; updBtn(); wvf(true); prevStart = Date.now(); prevDur = 30; startPT(); })
+        .catch(e => toast('Could not play audio: ' + e.message, 'error'));
+    }
+    function stopAll() {
+      clearInterval(progTimer);
+      if (audio.src) { audio.pause(); audio.removeAttribute('src'); }
+      if (spPlayer && isPremium) fetch('/api/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'pause' }) }).catch(() => { });
+      isPlaying = false; wvf(false); updBtn();
+      document.getElementById('aaWrap').classList.remove('playing');
+    }
+    function togglePlay() {
+      // If a searched song is the active track, play/pause that — do NOT touch the playlist
+      if (isSearchMode && window._searchedTrack) {
+        if (isPlaying) {
+          if (spPlayer && isPremium) spPlayer.pause(); else audio.pause();
+          isPlaying = false; updBtn(); wvf(false);
+          document.getElementById('aaWrap').classList.remove('playing');
+        } else {
+          if (spPlayer && isPremium) {
+            spPlayer.resume(); isPlaying = true; updBtn(); wvf(true);
+            document.getElementById('aaWrap').classList.add('playing');
+          } else if (audio.src) {
+            audio.play().then(() => { isPlaying = true; updBtn(); wvf(true); document.getElementById('aaWrap').classList.add('playing'); }).catch(() => { });
+          }
+        }
+        return;
+      }
+      if (curIdx < 0 && playlist.length > 0) { playTrack(0); return; }
+      if (curIdx < 0) { toast('Get recommendations first!', 'info'); return; }
+      if (isPlaying) {
+        if (spPlayer && isPremium) spPlayer.pause(); else audio.pause();
+        isPlaying = false; updBtn(); wvf(false); document.getElementById('aaWrap').classList.remove('playing');
+      } else {
+        if (spPlayer && isPremium) {
+          spPlayer.resume(); isPlaying = true; updBtn(); wvf(true); document.getElementById('aaWrap').classList.add('playing');
+        } else if (audio.src) {
+          audio.play().then(() => { isPlaying = true; updBtn(); wvf(true); document.getElementById('aaWrap').classList.add('playing'); }).catch(() => toast('No audio to play', 'error'));
+        } else {
+          toast('No track playing or preview available.', 'info');
+        }
+      }
+    }
+    // ── Shuffle queue builder (Fisher-Yates) ──────────────────────
+    function buildShuffleQueue(startIdx) {
+      const from = (startIdx !== undefined) ? startIdx : curIdx;
+      // All indices except starting one
+      let rest = playlist.map((_, i) => i).filter(i => i !== from);
+      // Fisher–Yates shuffle — guarantees no sequential order
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      shuffleQueue = [from, ...rest]; // current song at position 0, random rest after
+      shufflePos   = 0;
+    }
+
+    function toggleShuffle() {
+      isShuffle = !isShuffle;
+      const btn = document.getElementById('shufBtn');
+      btn.classList.toggle('active', isShuffle);
+      if (isShuffle) {
+        if (playlist.length) buildShuffleQueue();
+        toast('🔀 Shuffle ON — random order active', 'info', 2000);
+      } else {
+        shuffleQueue = []; shufflePos = 0;
+        toast('Shuffle OFF', 'info', 1500);
+      }
+    }
+
+    function toggleRepeat() {
+      isRepeatOne = !isRepeatOne;
+      const btn = document.getElementById('repBtn');
+      btn.classList.toggle('active', isRepeatOne);
+      toast(isRepeatOne ? '🔁 Repeat ON — song will loop!' : 'Repeat OFF', 'info', 1500);
+    }
+
+    function nextT() {
+      if (isSearchMode) { isSearchMode = false; return; }
+      if (!playlist.length) return;
+      if (isRepeatOne) { playTrack(curIdx); return; }
+      if (isShuffle) {
+        if (!shuffleQueue.length) buildShuffleQueue();
+        shufflePos++;
+        if (shufflePos >= shuffleQueue.length) {
+          buildShuffleQueue();
+          shufflePos = 1;
+        }
+        _shuffleNav = true;
+        playTrack(shuffleQueue[shufflePos]);
+        _shuffleNav = false;
+      } else {
+        playTrack((curIdx + 1) % playlist.length);
+      }
+    }
+
+    function prevT() {
+      if (isSearchMode) { isSearchMode = false; return; }
+      if (!playlist.length) return;
+      if (isRepeatOne) { playTrack(curIdx); return; }
+      if (isShuffle) {
+        if (!shuffleQueue.length) buildShuffleQueue();
+        if (shufflePos > 1) shufflePos--;
+        _shuffleNav = true;
+        playTrack(shuffleQueue[shufflePos]);
+        _shuffleNav = false;
+      } else {
+        playTrack((curIdx - 1 + playlist.length) % playlist.length);
+      }
+    }
+    function setVol(v) {
+      audio.volume = v / 100;
+      if (spPlayer && isPremium) {
+        spPlayer.setVolume(v / 100);
+        fetch('/api/player', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'volume', payload: { volume_percent: parseInt(v) } }) }).catch(() => { });
+      }
+    }
+    function seekTo(e) {
+      const bw = document.getElementById('pbwrap'), pct = e.offsetX / bw.clientWidth;
+      if (spPlayer && isPremium) spPlayer.getCurrentState().then(s => { if (s) spPlayer.seek(s.duration * pct); });
+      else if (audio.duration) audio.currentTime = audio.duration * pct;
+    }
+    audio.addEventListener('ended', () => {
+      if (isSearchMode) {
+        // Search track ended — just stop, do NOT auto-play playlist
+        isSearchMode = false; isPlaying = false; updBtn(); wvf(false);
+        document.getElementById('aaWrap').classList.remove('playing');
+        return;
+      }
+      if (isRepeatOne) {
+        audio.currentTime = 0;
+        audio.play().then(() => { isPlaying = true; updBtn(); wvf(true); }).catch(() => { });
+      } else {
+        nextT();
+      }
+    });
+    audio.addEventListener('timeupdate', () => updProg(audio.currentTime, audio.duration || 30));
+    function startPT() { progTimer = setInterval(() => updProg((Date.now() - prevStart) / 1000, prevDur), 500); }
+    function updProg(pos, dur) {
+      if (!dur || isNaN(dur)) return;
+      const pct = Math.min(pos / dur * 100, 100);
+      document.getElementById('pb').style.width = pct + '%';
+      document.getElementById('ctime').textContent = fmt(pos);
+      document.getElementById('ttime').textContent = fmt(dur);
+    }
+    function fmt(s) { if (!s || isNaN(s)) return '0:00'; return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`; }
+    function updBtn() { document.getElementById('ppbtn').textContent = isPlaying ? '⏸' : '▶'; }
+    function wvf(active) { document.getElementById('wvf').classList.toggle('active', active); }
+
+    // ── GLOBAL SONG SEARCH ──
+
+    // ── Search History (localStorage) ──
+    const SH_KEY = 'swmp_search_history';
+    function getHistory() {
+      try { return JSON.parse(localStorage.getItem(SH_KEY)) || []; } catch { return []; }
+    }
+    function addToHistory(q) {
+      let h = getHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
+      h.unshift(q);
+      if (h.length > 20) h = h.slice(0, 20); // keep max 20
+      localStorage.setItem(SH_KEY, JSON.stringify(h));
+    }
+    function removeFromHistory(q, e) {
+      e.stopPropagation();
+      const h = getHistory().filter(x => x.toLowerCase() !== q.toLowerCase());
+      localStorage.setItem(SH_KEY, JSON.stringify(h));
+      renderSearchHistory();
+    }
+    function clearSearchHistory(e) {
+      e.stopPropagation();
+      localStorage.removeItem(SH_KEY);
+      renderSearchHistory();
+    }
+    function renderSearchHistory(filter = '') {
+      const list = document.getElementById('sh-list');
+      let h = getHistory();
+      if (filter) h = h.filter(x => x.toLowerCase().includes(filter.toLowerCase()));
+      h = h.slice(0, 5);
+      list.innerHTML = '';
+      if (!h.length) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:10px 14px 12px;font-size:.78rem;color:var(--text2);text-align:center';
+        empty.textContent = 'No recent searches';
+        list.appendChild(empty);
+        return;
+      }
+      h.forEach(q => {
+        const row = document.createElement('div');
+        row.className = 'sh-item';
+        const icon = document.createElement('span');
+        icon.className = 'sh-item-icon'; icon.textContent = '\ud83d\udd59';
+        const txt = document.createElement('span');
+        txt.className = 'sh-item-text'; txt.textContent = q;
+        const del = document.createElement('button');
+        del.className = 'sh-item-del'; del.title = 'Remove'; del.textContent = '\u2715';
+        del.addEventListener('click', e => removeFromHistory(q, e));
+        row.addEventListener('click', () => pickHistory(q));
+        row.appendChild(icon); row.appendChild(txt); row.appendChild(del);
+        list.appendChild(row);
+      });
+    }
+    function openSearchHistory() {
+      renderSearchHistory(document.getElementById('top-search-input').value);
+      document.getElementById('search-history-dropdown').classList.add('open');
+    }
+    function filterSearchHistory(val) {
+      renderSearchHistory(val);
+      const dropdown = document.getElementById('search-history-dropdown');
+      if (val.length > 0 || getHistory().length > 0) dropdown.classList.add('open');
+    }
+    function pickHistory(q) {
+      document.getElementById('top-search-input').value = q;
+      document.getElementById('search-history-dropdown').classList.remove('open');
+      searchTopSong();
+    }
+    // Close dropdown when clicking outside
+    document.addEventListener('click', e => {
+      if (!document.getElementById('top-search').contains(e.target)) {
+        document.getElementById('search-history-dropdown').classList.remove('open');
+      }
+    });
+
+    function searchTopSong() {
+      const inp = document.getElementById('top-search-input');
+      const q = inp.value.trim();
+      if (!q) { toast('Please enter a song name to search', 'error'); return; }
+      document.getElementById('search-history-dropdown').classList.remove('open');
+      const btn = document.getElementById('top-search-btn');
+      const SEARCH_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/></svg>';
+      btn.disabled = true; btn.textContent = 'Searching...';
+      fetch('/api/search_single?q=' + encodeURIComponent(q))
+        .then(r => {
+          if (!r.ok) return r.json().catch(() => ({ error: 'Server error (' + r.status + '). Please restart the app.' }));
+          return r.json();
+        })
+        .then(d => {
+          btn.disabled = false; btn.innerHTML = SEARCH_SVG;
+          if (d.error) { toast(d.error, 'error'); return; }
+          addToHistory(q);
+          playSearchedTrack(d.track);
+        })
+        .catch(err => {
+          btn.disabled = false; btn.innerHTML = SEARCH_SVG;
+          toast('Search failed: ' + (err.message || 'network error'), 'error');
+        });
+    }
+
+    function playSearchedTrack(t) {
+      window._searchedTrack = t;
+      isSearchMode = true; // all play/pause/next/prev will now operate on this track
+      stopAll();
+      // Update Now Playing UI
+      document.getElementById('aat').src = t.album_art || '';
+      document.getElementById('tname').textContent = t.name;
+      document.getElementById('tartist').textContent = t.artists;
+      document.getElementById('talbum').textContent = t.album;
+      // Deselect playlist items
+      document.querySelectorAll('.pli').forEach(el => el.classList.remove('active'));
+      document.getElementById('aaWrap').classList.remove('playing');
+
+      if (spPlayer && isPremium && devId) {
+        document.getElementById('aaWrap').classList.add('playing');
+        fetch('/api/player', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'play', payload: { uris: [t.uri], device_id: devId } })
+        })
+          .then(r => {
+            if (!r.ok) throw new Error();
+            isPlaying = true; updBtn(); wvf(true);
+            document.getElementById('pvbadge').style.display = 'none';
+            toast(`Now playing: ${t.name} `, 'success', 2500);
+          })
+          .catch(() => {
+            if (t.preview_url) {
+              playPrev(t.preview_url);
+              document.getElementById('pvbadge').style.display = 'inline-flex';
+              toast(`▶ ${t.name} (30s preview)`, 'success', 2500);
+            } else {
+              isSearchMode = false;
+              toast('No preview available. Login with Spotify Premium for full playback.', 'info', 4000);
+              isPlaying = false; updBtn(); wvf(false);
+              document.getElementById('aaWrap').classList.remove('playing');
+            }
+          });
+      } else if (t.preview_url) {
+        document.getElementById('aaWrap').classList.add('playing');
+        playPrev(t.preview_url);
+        document.getElementById('pvbadge').style.display = 'inline-flex';
+        toast(`▶ ${t.name} (30s preview)`, 'success', 2500);
+      } else {
+        isSearchMode = false;
+        toast('No preview available. Click the YouTube button to listen! 🎵', 'info', 4000);
+        document.getElementById('aaWrap').classList.remove('playing');
+      }
+    }
+
+    // ── SINGERS BY LANGUAGE ──
+    const SINGERS_BY_LANG = {
+      'Hindi': ['Arijit Singh', 'Shreya Ghoshal', 'Jubin Nautiyal', 'Neha Kakkar', 'Atif Aslam', 'Kishore Kumar', 'Lata Mangeshkar', 'A.R. Rahman', 'Kumar Sanu', 'Udit Narayan'],
+      'English': ['Taylor Swift', 'Ed Sheeran', 'The Weeknd', 'Coldplay', 'Dua Lipa', 'Bruno Mars', 'Billie Eilish', 'Justin Bieber', 'Ariana Grande', 'Adele'],
+      'Tamil': ['SPB', 'Sid Sriram', 'Yuvan Shankar Raja', 'Anirudh Ravichander', 'Ilaiyaraaja', 'Hariharan', 'Chinmayi', 'Shreya Ghoshal'],
+      'Telugu': ['SP Balasubrahmanyam', 'Sid Sriram', 'Armaan Malik', 'Chinmayi', 'Karthik', 'Anurag Kulkarni', 'Sunitha Upadrashta'],
+      'Marathi': ['Ajay-Atul', 'Vaibhav Joshi', 'Bela Shende', 'Anand Shinde', 'Swaroop Khan', 'Shreya Ghoshal', 'Adarsh Shinde', 'Swapnil Bandodkar'],
+      'Punjabi': ['Diljit Dosanjh', 'AP Dhillon', 'Sidhu Moosewala', 'B Praak', 'Guru Randhawa', 'Harrdy Sandhu', 'Shubh', 'Ammy Virk', 'Karan Aujla'],
+      'Bengali': ['Arijit Singh', 'Nachiketa Chakraborty', 'Anupam Roy', 'Usha Uthup', 'Rupankar Bagchi', 'Shreya Ghoshal', 'Kumar Sanu'],
+      'Bhojpuri': ['Pawan Singh', 'Khesari Lal Yadav', 'Ritesh Pandey', 'Neelkamal Singh', 'Pramod Premi', 'Dinesh Lal Yadav'],
+      'Odia': ['Humane Sagar', 'Ira Mohanty', 'Sourin Bhatt', 'Tapu Mishra', 'Ashok Pati', 'Nibedita'],
+    };
+    function updateSingers() {
+      const lang = document.getElementById('flang').value;
+      const sel = document.getElementById('fsnger');
+      const prev = sel.value;
+      sel.innerHTML = '<option value="">Any Artist</option>';
+      (SINGERS_BY_LANG[lang] || SINGERS_BY_LANG['Hindi']).forEach(s => {
+        const o = document.createElement('option');
+        o.value = s; o.textContent = s;
+        if (s === prev) o.selected = true;
+        sel.appendChild(o);
+      });
+    }
+
+    // ── AUTH CHECK ──
+    function checkAuth() {
+      const p = new URLSearchParams(location.search);
+      if (p.get('auth') === 'success') { toast('Logged in to Spotify! 🎉', 'success'); history.replaceState(null, '', '/'); }
+      else if (p.get('auth') === 'error') { toast('Spotify login failed: ' + (p.get('msg') || 'Unknown'), 'error'); history.replaceState(null, '', '/'); }
+      fetch('/api/me').then(r => r.json()).then(d => {
+        if (d.logged_in) {
+          document.getElementById('sp-login').style.display = 'none';
+          const b = document.getElementById('ubadge'); b.style.display = 'flex';
+          document.getElementById('uname').textContent = d.name;
+          document.getElementById('utag').textContent = d.product === 'premium' ? 'PREMIUM' : 'FREE';
+          if (d.image) document.getElementById('uavatar').src = d.image;
+          isPremium = d.product === 'premium';
+        }
+      }).catch(() => { });
+    }
+    document.addEventListener('DOMContentLoaded', () => { checkAuth(); updateSingers(); });
+  </script>
+  {% endraw %}
+  
+  <script src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
+  <script>
+    let emoStream = null;
+    let emoDetectInterval;
+    let modelsLoaded = false;
+    let lastDetectedEmotion = "";
+    let emotionPersistCount = 0;
+    
+    function openEmotionMode() {
+      document.getElementById("emo-overlay").style.display = "flex";
+    }
+    
+    function closeEmotionMode() {
+      stopEmotionCam();
+      document.getElementById("emo-overlay").style.display = "none";
+    }
+    
+    async function startEmotionCam() {
+      if (emoStream) stopEmotionCam();
+      if (!modelsLoaded) {
+        const p = document.getElementById("emo-placeholder");
+        p.innerHTML = "Downloading AI models (~3MB)...<br>Please wait wait.";
+        await faceapi.nets.tinyFaceDetector.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+        await faceapi.nets.faceExpressionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/');
+        modelsLoaded = true;
+      }
+      
+      const video = document.getElementById("emo-video");
+      try {
+        emoStream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = emoStream;
+        document.getElementById("emo-placeholder").style.display = "none";
+        video.style.display = "block";
+        video.onloadedmetadata = () => {
+          video.play();
+          startDetecting();
+        };
+      } catch (err) {
+        alert("Camera access denied or unavailable.");
+        document.getElementById("emo-placeholder").innerHTML = "Camera permission error.";
+      }
+    }
+    
+    function stopEmotionCam() {
+      if (emoDetectInterval) clearInterval(emoDetectInterval);
+      if (emoStream) {
+        emoStream.getTracks().forEach(track => track.stop());
+        emoStream = null;
+      }
+      document.getElementById("emo-video").style.display = "none";
+      document.getElementById("emo-placeholder").style.display = "block";
+      document.getElementById("emo-placeholder").innerHTML = "📷<br><br>Enable camera to start";
+      
+      const canvas = document.getElementById("emo-canvas");
+      if(canvas) canvas.remove();
+    }
+    
+    async function startDetecting() {
+      const video = document.getElementById("emo-video");
+      const camView = document.querySelector(".emo-cam-view");
+      
+      const oldCanvas = document.getElementById("emo-canvas");
+      if(oldCanvas) oldCanvas.remove();
+      
+      const canvas = faceapi.createCanvasFromMedia(video);
+      canvas.id = "emo-canvas";
+      canvas.style.position = "absolute";
+      canvas.style.top = "0";
+      canvas.style.left = "0";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.pointerEvents = "none";
+      canvas.style.zIndex = "10";
+      camView.appendChild(canvas);
+      
+      const displaySize = { width: video.videoWidth, height: video.videoHeight };
+      faceapi.matchDimensions(canvas, displaySize);
+    
+      let emoHistory = [];
+      const HISTORY_LEN = 10;
+      
+      emoDetectInterval = setInterval(async () => {
+        // ── detectAllFaces: scan EVERY face in the frame ──
+        // Increased inputSize and scoreThreshold for better accuracy
+        const allDetections = await faceapi
+          .detectAllFaces(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 512, scoreThreshold: 0.4 }))
+          .withFaceExpressions();
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!allDetections || allDetections.length === 0) {
+          emoHistory.push(null);
+          if (emoHistory.length > HISTORY_LEN) emoHistory.shift();
+          
+          if (emoHistory.every(e => e === null)) {
+            document.getElementById("emo-display-emoji").innerText = "👁️";
+            document.getElementById("emo-display-text").innerText = "No face detected";
+            document.getElementById("emo-display-desc").innerText = "Look at the camera";
+          }
+          return;
+        }
+
+        const resized = faceapi.resizeResults(allDetections, displaySize);
+
+        // Draw colored boxes for each face
+        const faceColors = ["#1db954", "#7c3aed", "#f59e0b", "#ef4444", "#3b82f6"];
+        resized.forEach((det, fi) => {
+          const { x, y, width, height } = det.detection.box;
+          const color = faceColors[fi % faceColors.length];
+          ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+          ctx.strokeRect(x, y, width, height);
+          const topEmo = Object.keys(det.expressions).reduce((a,b) => det.expressions[a] > det.expressions[b] ? a : b);
+          ctx.fillStyle = color; ctx.fillRect(x, y - 22, 90, 20);
+          ctx.fillStyle = "#000"; ctx.font = "bold 11px Inter, sans-serif";
+          ctx.fillText(`Face ${fi+1}: ${topEmo}`, x + 3, y - 7);
+        });
+
+        // Aggregate emotions across ALL faces
+        const aggr = {};
+        allDetections.forEach(det => {
+          Object.entries(det.expressions).forEach(([emo, val]) => {
+            aggr[emo] = (aggr[emo] || 0) + val;
+          });
+        });
+        
+        const sortedEmos = Object.keys(aggr).sort((a,b) => aggr[b] - aggr[a]);
+        const topEmotion = sortedEmos[0];
+        const secEmotion = sortedEmos[1];
+        const topConf = Math.round((aggr[topEmotion] / allDetections.length) * 100);
+        const secConf = Math.round((aggr[secEmotion] / allDetections.length) * 100);
+        
+        // Multiple mood string if secondary is significant (>25%)
+        let currentDetected = topEmotion;
+        if (secConf >= 25) {
+           currentDetected = topEmotion + "," + secEmotion;
+        }
+        
+        emoHistory.push(currentDetected);
+        if (emoHistory.length > HISTORY_LEN) emoHistory.shift();
+
+        // Find the most frequent combined emotion in recent history
+        const counts = {};
+        for (let e of emoHistory) { 
+           if(e) counts[e] = (counts[e] || 0) + 1; 
+        }
+        
+        let maxEmo = currentDetected;
+        let maxCount = 0;
+        for (let e in counts) {
+           if (counts[e] > maxCount) { 
+             maxCount = counts[e]; 
+             maxEmo = e; 
+           }
+        }
+
+        const emojiMap = { happy:"😄", sad:"😢", angry:"😠", fearful:"😨", disgusted:"🤢", surprised:"😲", neutral:"😐" };
+        const primaryEmo = maxEmo.split(",")[0];
+        const hasMultiple = maxEmo.includes(",");
+        const displayLabel = hasMultiple ? maxEmo.split(",").join(" & ").toUpperCase() : maxEmo.toUpperCase();
+
+        document.getElementById("emo-display-emoji").innerText = emojiMap[primaryEmo] || "😐";
+        document.getElementById("emo-display-text").innerText = displayLabel + " (Focusing...)";
+        document.getElementById("emo-display-desc").innerText = `Confirming mood... [${maxCount}/${HISTORY_LEN}]`;
+
+        if (maxCount >= 6) {
+          document.getElementById("emo-display-text").innerText = displayLabel + " Confirmed!";
+          document.getElementById("emo-display-desc").innerText = "🎵 Generating playlist...";
+          clearInterval(emoDetectInterval);
+          // keep camera open so mood stays on screen
+          // Pass the primary emotion for playlist generation to ensure compatibility
+          triggerEmotionPlaylist(primaryEmo);
+        }
+      }, 150);
+    }
+    
+    // ── EMOTION MUSIC PLAYER (Spotify preview + YouTube fallback) ──
+    const empAudio  = new Audio();
+    let emoIdx      = -1;
+    let empPlaying  = false;
+    let empShuffle  = false;
+    let empRepeat   = false;
+    let empTimer    = null;
+    let empMode     = 'audio';   // 'audio' | 'youtube'
+    let empYTPlayer = null;
+    let empYTReady  = false;
+    const EMP_FB = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='66' height='66'%3E%3Ccircle cx='33' cy='33' r='33' fill='%23141428'/%3E%3Ccircle cx='33' cy='33' r='9' fill='%23282848'/%3E%3C/svg%3E";
+
+    /* ── YouTube IFrame support ── */
+    function empInitYT() {
+      if (empYTReady) return;
+      if (window.YT && window.YT.Player) { empCreateYTPlayer(); return; }
+      if (!document.getElementById('emp-yt-api')) {
+        const tag = document.createElement('script');
+        tag.id  = 'emp-yt-api';
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      }
+      const _old = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = function() {
+        if (_old) _old();
+        empCreateYTPlayer();
+      };
+    }
+
+    function empCreateYTPlayer() {
+      if (empYTReady || !document.getElementById('emp-yt-player')) return;
+      empYTPlayer = new YT.Player('emp-yt-player', {
+        height: '240', width: '320', videoId: '',
+        playerVars: { autoplay: 1, controls: 0, playsinline: 1, rel: 0 },
+        events: {
+          onReady: function() { empYTReady = true; },
+          onStateChange: function(e) {
+            if (e.data === YT.PlayerState.PLAYING) {
+              empSetState(true);
+              clearInterval(empTimer);
+              empTimer = setInterval(empUpdProg, 500);
+            } else if (e.data === YT.PlayerState.PAUSED) {
+              clearInterval(empTimer); empSetState(false);
+            } else if (e.data === YT.PlayerState.ENDED) {
+              clearInterval(empTimer); empTimer = null; empSetState(false);
+              if (empRepeat) { playEmotionTrack(emoIdx); return; }
+              empNext();
+            } else if (e.data === YT.PlayerState.UNSTARTED || e.data === YT.PlayerState.CUED) {
+              // Usually handled by UI interactions
+              empSetState(false);
+            }
+          },
+          onError: function(e) {
+            console.error('YT Player Error:', e.data);
+            toast('⏭ YouTube stream unavailable, skipping...', 'error', 1500);
+            setTimeout(() => empNext(), 1500);
+          }
+        }
+      });
+    }
+
+    function empFmt(s){ if(!s||isNaN(s))return'0:00'; return`${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`; }
+
+    function empSetState(on){
+      empPlaying = on;
+      const btn = document.getElementById('emp-play-btn');
+      btn.textContent = on ? '⏸' : '▶';
+      btn.classList.toggle('emp-pulsing', on);
+      document.getElementById('emp-art-wrap').classList.toggle('emp-playing', on);
+    }
+
+    function empHighlight(idx){
+      document.querySelectorAll('.emo-song').forEach((el,i)=>{
+        el.style.background  = i===idx ? 'rgba(29,185,84,0.12)' : '';
+        el.style.borderLeft  = i===idx ? '2px solid var(--accent)' : '';
+        el.style.paddingLeft = i===idx ? '12px' : '';
+      });
+      const el = document.querySelectorAll('.emo-song')[idx];
+      if(el) el.scrollIntoView({behavior:'smooth', block:'nearest'});
+    }
+
+    function empUpdProg(){
+      let cur = 0, dur = 0;
+      if (empMode === 'youtube' && empYTPlayer && empYTReady) {
+        try { cur = empYTPlayer.getCurrentTime()||0; dur = empYTPlayer.getDuration()||0; } catch(e){}
+      } else if (empMode === 'spotify' && spPlayer) {
+        spPlayer.getCurrentState().then(s => {
+          if (s) {
+            cur = s.position / 1000;
+            dur = s.duration / 1000;
+            if(dur){
+               document.getElementById('emp-prog-fill').style.width = (cur/dur*100)+'%';
+               document.getElementById('emp-ctime').textContent = empFmt(cur);
+               document.getElementById('emp-ttime').textContent = empFmt(dur);
+            }
+          }
+        });
+        return;
+      } else {
+        cur = empAudio.currentTime; dur = empAudio.duration || 0;
+      }
+      if (!dur && empMode !== 'spotify') return;
+      document.getElementById('emp-prog-fill').style.width = (dur?(cur/dur*100):0)+'%';
+      document.getElementById('emp-ctime').textContent = empFmt(cur);
+      document.getElementById('emp-ttime').textContent = empFmt(dur);
+    }
+
+    function empRandOther(){
+      if(emotionPlaylist.length<=1) return 0;
+      let i; do{ i=Math.floor(Math.random()*emotionPlaylist.length); }while(i===emoIdx); return i;
+    }
+
+    function empStopCurrent(){
+      clearInterval(empTimer); empTimer=null;
+      if (empMode === 'youtube' && empYTPlayer && empYTReady) {
+        try { empYTPlayer.stopVideo(); } catch(e){}
+      } else if (empMode === 'spotify' && spPlayer) {
+        spPlayer.pause();
+      } else {
+        empAudio.pause(); empAudio.src='';
+      }
+      empSetState(false);
+    }
+
+    function empPlayViaYT(t) {
+      empInitYT();
+      const q = encodeURIComponent(t.name+' '+(t.artists||'').split(',')[0]+' song');
+      fetch('/api/youtube_search?q='+q)
+        .then(async r => {
+          if (!r.ok) {
+            const err = await r.text();
+            throw new Error(`Server Error ${r.status}`);
+          }
+          return r.json();
+        })
+        .then(data=>{
+          if (!data.video_id) {
+            toast('⏭ Audio not found on YouTube, skipping…','info',1500);
+            setTimeout(()=>empNext(),1200); return;
+          }
+          const vol = parseInt(document.getElementById('emp-vol-slider').value);
+          let attempts = 0;
+          const tryLoad = () => {
+            attempts++;
+            if (empYTPlayer && empYTReady && empYTPlayer.loadVideoById) {
+              empYTPlayer.setVolume(vol);
+              empYTPlayer.loadVideoById(data.video_id);
+            } else if (attempts < 15) { 
+              setTimeout(tryLoad, 800); 
+            } else {
+              toast('⏭ Player API taking too long, skipping…', 'error', 2000);
+              setTimeout(() => empNext(), 1500);
+            }
+          };
+          tryLoad();
+        })
+        .catch((e)=>{ 
+          console.error('[Emotion Mode YT Fallback]', e);
+          toast('⚠️ API Error! Please restart server.', 'error', 3000);
+          empSetState(false);
+          // Do NOT auto-skip here; halt the infinite loop.
+        });
+    }
+
+    function empPlayViaSDK(t) {
+      fetch('/api/player', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'play', payload: { uris: [t.uri], device_id: devId } })
+      })
+      .then(r => {
+        if (!r.ok) throw new Error('SDK play failed');
+        empSetState(true);
+        empTimer = setInterval(empUpdProg, 400); 
+      })
+      .catch((e) => {
+        if (t.preview_url) {
+          empMode = 'audio';
+          document.getElementById('emp-pvbadge').style.display = 'inline-block';
+          empAudio.src = t.preview_url;
+          empAudio.volume = document.getElementById('emp-vol-slider').value/100;
+          empAudio.play().then(()=>{ empSetState(true); empTimer=setInterval(empUpdProg,400); }).catch(()=>empPlayViaYT(t));
+        } else {
+          empMode = 'youtube';
+          empPlayViaYT(t);
+        }
+      });
+    }
+
+    function playEmotionTrack(idx){
+      if(idx<0||idx>=emotionPlaylist.length) return;
+      empStopCurrent();
+      emoIdx = idx;
+      const t = emotionPlaylist[idx];
+      document.getElementById('emp-art').src = t.album_art || EMP_FB;
+      document.getElementById('emp-art').onerror = function(){ this.src=EMP_FB; };
+      document.getElementById('emp-tname').textContent   = t.name;
+      document.getElementById('emp-tartist').textContent = t.artists;
+      document.getElementById('emp-prog-fill').style.width = '0%';
+      document.getElementById('emp-ctime').textContent = '0:00';
+      document.getElementById('emp-ttime').textContent = t.duration || '0:00';
+      empHighlight(idx);
+      
+      if (spPlayer && isPremium && devId && t.uri) {
+        empMode = 'spotify';
+        document.getElementById('emp-pvbadge').style.display = 'none';
+        empPlayViaSDK(t);
+      } else if (t.preview_url) {
+        empMode = 'audio';
+        document.getElementById('emp-pvbadge').style.display = 'inline-block';
+        empAudio.src = t.preview_url;
+        empAudio.volume = document.getElementById('emp-vol-slider').value/100;
+        empAudio.play()
+          .then(()=>{ empSetState(true); empTimer=setInterval(empUpdProg,400); })
+          .catch(()=>{ empMode='youtube'; document.getElementById('emp-pvbadge').style.display='none'; empPlayViaYT(t); });
+      } else {
+        empMode = 'youtube';
+        document.getElementById('emp-pvbadge').style.display = 'none';
+        empPlayViaYT(t);
+      }
+    }
+
+    empAudio.addEventListener('ended',()=>{
+      clearInterval(empTimer); empTimer=null; empSetState(false);
+      if(empRepeat){ playEmotionTrack(emoIdx); return; }
+      empNext();
+    });
+    empAudio.addEventListener('timeupdate', empUpdProg);
+
+    function empTogglePlay(){
+      if(!emotionPlaylist.length){ toast('Detect emotion to load playlist!','info'); return; }
+      if(emoIdx<0){ playEmotionTrack(0); return; }
+      if(empPlaying){
+        if(empMode==='youtube'&&empYTPlayer&&empYTReady){ try{empYTPlayer.pauseVideo();}catch(e){} }
+        else if(empMode==='spotify'&&spPlayer){ spPlayer.pause(); }
+        else { empAudio.pause(); clearInterval(empTimer); }
+        empSetState(false);
+      } else {
+        if(empMode==='youtube'&&empYTPlayer&&empYTReady){ try{empYTPlayer.playVideo();}catch(e){} }
+        else if(empMode==='spotify'&&spPlayer){ spPlayer.resume().then(()=>{empSetState(true);}).catch(()=>{}); }
+        else { empAudio.play().then(()=>{ empSetState(true); empTimer=setInterval(empUpdProg,400); }).catch(()=>{}); }
+      }
+    }
+    function empNext(){
+      if(!emotionPlaylist.length) return;
+      const next = empShuffle ? empRandOther() : (emoIdx+1)%emotionPlaylist.length;
+      playEmotionTrack(next);
+    }
+    function empPrev(){
+      if(!emotionPlaylist.length) return;
+      let curTime = empMode==='youtube'&&empYTPlayer&&empYTReady ? (()=>{try{return empYTPlayer.getCurrentTime()||0;}catch(e){return 0;}})() : empAudio.currentTime;
+      if(curTime>3){
+        if(empMode==='youtube'&&empYTPlayer&&empYTReady){try{empYTPlayer.seekTo(0,true);}catch(e){}}
+        else empAudio.currentTime=0;
+        return;
+      }
+      const prev = empShuffle ? empRandOther() : (emoIdx-1+emotionPlaylist.length)%emotionPlaylist.length;
+      playEmotionTrack(prev);
+    }
+    function empToggleShuffle(){
+      empShuffle = !empShuffle;
+      document.getElementById('emp-shuf-btn').classList.toggle('active', empShuffle);
+      toast(empShuffle ? '🔀 Shuffle ON — next song will be random' : 'Shuffle OFF', 'info', 1600);
+    }
+    function empToggleRepeat(){
+      empRepeat = !empRepeat;
+      document.getElementById('emp-rep-btn').classList.toggle('active', empRepeat);
+      toast(empRepeat ? '🔁 Repeat ON — song will loop after it ends' : 'Repeat OFF', 'info', 1600);
+    }
+    function empSetVol(v){
+      empAudio.volume=v/100;
+      if(empYTPlayer&&empYTReady){try{empYTPlayer.setVolume(parseInt(v));}catch(e){}}
+      if(empMode==='spotify'&&spPlayer){ spPlayer.setVolume(v/100); fetch('/api/player',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'volume',payload:{volume_percent:parseInt(v)}})}).catch(()=>{}); }
+    }
+    function empSeek(e){
+      const bar=document.getElementById('emp-prog-bar');
+      const pct=e.offsetX/bar.clientWidth;
+      if(empMode==='youtube'&&empYTPlayer&&empYTReady){
+        try{const d=empYTPlayer.getDuration();if(d)empYTPlayer.seekTo(d*pct,true);}catch(e){}
+      } else if(empMode==='spotify'&&spPlayer){
+        spPlayer.getCurrentState().then(s=>{if(s)spPlayer.seek(s.duration*pct);});
+      } else {
+        if(empAudio.duration) empAudio.currentTime=empAudio.duration*pct;
+      }
+    }
+
+    function triggerEmotionPlaylist(emotion) {
+      const singer     = document.getElementById('fsnger') ? document.getElementById('fsnger').value : '';
+      const language   = document.getElementById('flang')  ? document.getElementById('flang').value  : '';
+      const generation = document.getElementById('fgen')   ? document.getElementById('fgen').value   : '';
+
+      document.getElementById('emo-plist-container').innerHTML =
+        '<div style="text-align:center;padding:40px;color:var(--text2)">🎵 Generating playlist...<br><br>Please wait...</div>';
+
+      fetch('/api/emotion_songs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emotion, singer, language, generation })
+      })
+      .then(async r => {
+        if (!r.ok) {
+           const errText = await r.text();
+           console.error('Emotion API Error:', r.status, errText);
+           throw new Error(errText || 'API Error');
+        }
+        return r.json();
+      })
+      .then(data => {
+        document.getElementById('emo-display-text').innerText = 'Mood: ' + data.mood;
+        document.getElementById('emo-display-desc').innerText = 'Match found! ✅';
+        const variant = Math.floor(Math.random() * 2) + 1;
+        
+        return fetch(`/api/recommend?mood=${encodeURIComponent(data.mood)}&singer=${encodeURIComponent(singer)}&language=${encodeURIComponent(language)}&generation=${encodeURIComponent(generation)}&variant=${variant}`)
+          .then(async r2 => {
+            if (!r2.ok) {
+              const errText = await r2.text();
+              console.error('Recommend API Error:', r2.status, errText);
+              throw new Error(errText || 'Recommend API Error');
+            }
+            return r2.json();
+          })
+          .then(rec => {
+            if (rec.error || !rec.tracks || !rec.tracks.length) {
+              document.getElementById('emo-plist-container').innerHTML =
+                '<p style="color:var(--text2);text-align:center;padding:30px">No songs found for this mood.</p>';
+              return;
+            }
+            emotionPlaylist = rec.tracks;
+            emoIdx = -1;
+            const FBIMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='36' height='36'%3E%3Crect fill='%23202035' width='36' height='36'/%3E%3Ctext x='18' y='24' text-anchor='middle' fill='%23444' font-size='14'%3E%F0%9F%8E%B5%3C/text%3E%3C/svg%3E";
+            let html = `<div style="padding:8px 14px 4px;font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.8px;font-weight:600">${data.emoji || '🎵'} ${data.mood} &mdash; ${rec.tracks.length} songs</div>`;
+            rec.tracks.forEach((s, i) => {
+              html += `<div class="emo-song" onclick="playEmotionTrack(${i})">
+                <img src="${s.album_art || FBIMG}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.src='${FBIMG}'">
+                <div style="display:flex;flex-direction:column;min-width:0;flex:1">
+                  <span style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.name}</span>
+                  <span style="font-size:.72rem;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.artists}</span>
+                </div>
+                <span style="font-size:.68rem;color:var(--text2);flex-shrink:0">${s.duration || ''}</span>
+              </div>`;
+            });
+            document.getElementById('emo-plist-container').innerHTML = html;
+            setTimeout(() => playEmotionTrack(0), 400);
+          });
+      })
+      .catch((err) => {
+        console.error('Fetch chain error:', err);
+        document.getElementById('emo-plist-container').innerHTML =
+          `<p style="color:#ef4444;text-align:center;padding:30px">Error loading songs:<br><span style="font-size:0.7em">${err.message || err}</span></p>`;
+      });
+    }
+  </script>
+</body>
+
+</html>
